@@ -20488,7 +20488,15 @@ var __async = (__this, __arguments, generator) => {
       </div>
       <div class="form-row">
         <label for="hospital">Hospital</label>
-        <input type="text" id="hospital" value="St George's Hospital, Christchurch">
+        <select id="hospital" onchange="onHospitalChange()">
+          <option value="St George's Hospital, Christchurch">St George's Hospital</option>
+          <option value="Southern Endoscopy Centre">Southern Endoscopy Centre</option>
+          <option value="other">Other...</option>
+        </select>
+      </div>
+      <div class="form-row" id="hospitalOtherRow" style="display:none;">
+        <label for="hospitalOther">Hospital name</label>
+        <input type="text" id="hospitalOther" placeholder="Enter hospital name">
       </div>
       <div class="form-row">
         <label for="insurance">Insurance Type</label>
@@ -20631,6 +20639,7 @@ var __async = (__this, __arguments, generator) => {
       <div class="summary-note">
         † Anaesthetist bills separately. Estimate only – actual fee varies by duration and complexity.<br><br>
         Hospital fees: St George's schedule effective 1 April 2026.<br>
+        Surgeon fees: pricing schedules reviewed August 2026 (Southern Cross AP endoscopy fees per Southern Endoscopy agreement, Feb 2026).<br>
         All fees NZD incl. GST 15%.
       </div>
     </div>
@@ -20717,6 +20726,21 @@ function svgB64ToPngBase64(svgB64, outW, outH) {
   if (el && LOGO_RF_B64) el.src = "data:image/svg+xml;base64," + LOGO_RF_B64;
 })();
 
+function onHospitalChange() {
+  const v = document.getElementById("hospital").value;
+  const row = document.getElementById("hospitalOtherRow");
+  if (row) row.style.display = v === "other" ? "" : "none";
+  calculate();
+}
+
+function getHospitalName() {
+  const v = document.getElementById("hospital").value;
+  if (v === "other") {
+    return document.getElementById("hospitalOther").value.trim() || "Hospital (not specified)";
+  }
+  return v;
+}
+
 function updateSurgeon() {
   const name = document.getElementById("surgeon").value;
   const logoB64 = name === "Steven Kelly" ? LOGO_SK_B64 : LOGO_RF_B64;
@@ -20728,6 +20752,30 @@ function updateSurgeon() {
     el.style.display = "none";
   }
 }
+
+// Southern Endoscopy Centre – standard fee-for-service hospital fees
+// (standard private patients; averages from 9-month snapshot, non-GA)
+// Source: Southern Endoscopy Centre Fee for Service Average prices
+const SE_HOSP_FEES = {
+  "Gastroscopy":                                       2675,
+  "Gastroscopy + Biopsy":                              2600,
+  "Gastroscopy + Polypectomy":                         2800,
+  "Gastroscopy + Oesophageal Dilatation":              3300,
+  "Gastroscopy + Balloon Dilatation":                  3300,
+  "Gastroscopy + Colonoscopy":                         2750,
+  "Gastroscopy + Colonoscopy + Biopsy":                3275,
+  "Gastroscopy + Colonoscopy + Polypectomy":           3250,
+  "Gastroscopy + Colonoscopy + Extended Polypectomy":  3300,
+  "Colonoscopy":                                       2290,
+  "Colonoscopy + Biopsy / Dilatation":                 2459,
+  "Colonoscopy + Polypectomy":                         2557,
+  "Colonoscopy + Polypectomy & EMR":                   3790,
+  "Colonoscopy + Haemorrhoid Band":                    2872,
+  "Colonoscopy + Extended Polypectomy":                3790,
+  "Flexible Sigmoidoscopy":                            2327,
+  "Flexible Sigmoidoscopy + Biopsy":                   2500,  // estimated (not in schedule)
+  "Flexible Sigmoidoscopy + Polypectomy":              2700,  // estimated (not in schedule)
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // PROCEDURE DATA
@@ -20741,8 +20789,10 @@ const PROCEDURES = {
   // ── HERNIA – INGUINAL ──────────────────────────────────────────
   "Hernia Inguinal Unilateral Laparoscopic Repair":
     {standard:3000,sx_ap:2759,hnz:2613, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+  // Unilateral robotic inguinal: set hospital fee of $9,000 (all-inclusive –
+  // covers theatre, recovery, accommodation and robotic consumables).
   "Hernia Inguinal Unilateral Robotic Repair":
-    {standard:3000,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3000,sx_ap:null,hnz:null,hosp_fixed:9000,accom_incl:true, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Unilateral Open Repair":
     {standard:null,sx_ap:2453,hnz:2393, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Open Repair under Local Anaesthetic":
@@ -20750,31 +20800,31 @@ const PROCEDURES = {
   "Hernia Inguinal Bilateral Laparoscopic Repair":
     {standard:4000,sx_ap:3854,hnz:3335, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Bilateral Robotic Repair":
-    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:120,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Bilateral Open Repair":
     {standard:null,sx_ap:3818,hnz:null, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – FEMORAL ────────────────────────────────────────────
   "Hernia Femoral Unilateral Laparoscopic Repair":
     {standard:3000,sx_ap:2578,hnz:2462, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Femoral Unilateral Robotic Repair":
-    {standard:3000,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3000,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Femoral Unilateral Open Repair":
     {standard:null,sx_ap:2609,hnz:2291, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Femoral Bilateral Laparoscopic Repair":
     {standard:4000,sx_ap:null,hnz:null, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Femoral Bilateral Robotic Repair":
-    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:120,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – UMBILICAL ──────────────────────────────────────────
   "Hernia Umbilical Minor (≤5cm) Open Repair":
     {standard:3000,sx_ap:2671,hnz:2345, anaesthetic:1400,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Umbilical Minor Laparoscopic Repair":
-    {standard:null,sx_ap:3155,hnz:null, anaesthetic:1400,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5000,sx_ap:3155,hnz:null, anaesthetic:1400,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Umbilical Major (>5cm) Open Repair":
     {standard:3800,sx_ap:3623,hnz:3182, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Umbilical Major Laparoscopic Repair":
-    {standard:null,sx_ap:4695,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5000,sx_ap:4695,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Umbilical Major Robotic Repair":
-    {standard:5000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Laparoscopic Umbilical / Incisional Repair":
     {standard:5000,sx_ap:null,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – INCISIONAL ─────────────────────────────────────────
@@ -20790,7 +20840,7 @@ const PROCEDURES = {
   "Hernia Epigastric Laparoscopic Repair":
     {standard:null,sx_ap:4090,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Epigastric Robotic Repair":
-    {standard:4300,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4300,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – HIATUS / PARAOESOPHAGEAL ──────────────────────────
   "Hernia Hiatus +/- Fundoplication Laparoscopic Repair":
     {standard:5900,sx_ap:5467,hnz:null, anaesthetic:2000,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
@@ -20817,13 +20867,19 @@ const PROCEDURES = {
   // All bariatric procedures use an all-inclusive set_fee that covers
   // surgeon, hospital (theatre/recovery/accommodation), anaesthetist,
   // and all consumables. Pre-payment is required before admission.
-  // Pricing: proposed fees effective from schedule dated May 2026.
+  // Pricing: CWLS set-fee schedule, reviewed August 2026.
+  // "with SXAP-Insured Hiatus Hernia Repair" packages apply when Southern
+  // Cross covers the hiatus hernia component of a combined procedure.
   "Laparoscopic Sleeve Gastrectomy":
     {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:90,recovery_min:60,typical_stay:"Overnight – Single Room", set_fee:21500},
   "Laparoscopic Mini Gastric Bypass – One Anastomosis (OAGB)":
     {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:24500},
+  "Laparoscopic Mini Gastric Bypass – One Anastomosis (OAGB) with SXAP-Insured Hiatus Hernia Repair":
+    {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:150,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:16500},
   "Laparoscopic Roux-en-Y Gastric Bypass (RYGB)":
     {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:27500},
+  "Laparoscopic Roux-en-Y Gastric Bypass (RYGB) with SXAP-Insured Hiatus Hernia Repair":
+    {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:150,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:18500},
   "Laparoscopic Gastric Band":
     {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:90,recovery_min:60,typical_stay:"Overnight – Single Room", set_fee:27500},
   "Laparoscopic Gastric Division with Gastrojejunostomy & Jejunostomy":
@@ -20841,8 +20897,16 @@ const PROCEDURES = {
   "HDU / Intensivist Post-Op Pathway (bariatric add-on)":
     {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Overnight – Single Room", set_fee:3000},
   // ── UPPER GI & OTHER ────────────────────────────────────────────
+  "Laparoscopic Sleeve Gastrectomy to Roux-en-Y Gastric Bypass":
+    {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:150,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:31930},
+  "Laparoscopic OAGB Conversion to Roux-en-Y Gastric Bypass":
+    {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:100,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:27237},
+  "Laparoscopic Fundoplication Conversion to Roux-en-Y Gastric Bypass + Hiatal Hernia Repair":
+    {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:180,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:34670},
+  "Laparoscopic Revision Fundoplication and Hiatal Hernia Repair":
+    {standard:9000,sx_ap:null,hnz:null, anaesthetic:2500,theatre_min:150,recovery_min:60,typical_stay:"Overnight – Single Room"},
   "Laparoscopic Revision Fundoplication":
-    {standard:8000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:9000,sx_ap:null,hnz:null, anaesthetic:2500,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Fundoplication (Southern Cross AP)":
     {standard:null,sx_ap:5467,hnz:null, anaesthetic:2000,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Diagnostic Laparoscopy":
@@ -20863,52 +20927,57 @@ const PROCEDURES = {
     {standard:5500,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Excision Retroperitoneal Sarcoma":
     {standard:7500,sx_ap:null,hnz:null, anaesthetic:4200,theatre_min:240,recovery_min:90,typical_stay:"Overnight – Single Room"},
+  // SXAP endoscopy surgeon fees updated to the Southern Endoscopy Centre
+  // Affiliated Provider Agreement (Southern Cross), dated 12 Feb 2026.
+  // Notes: no separate SX fee listed for "extended polypectomy" – standard
+  // polypectomy fee applied. Colonoscopy + Haemorrhoid Band = colonoscopy
+  // ($1,049) + band ligation of haemorrhoids add-on ($222).
   // ── COLONOSCOPY ─────────────────────────────────────────────────
-  "Colonoscopy":
-    {standard:1600,sx_ap:1032,hnz:848,hosp_fixed:2030, anaesthetic:1100,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+  "Colonoscopy ($1,049–$1,581)":
+    {standard:1275,sx_ap:1275,hnz:848,hosp_fixed:2030, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Biopsy / Dilatation":
-    {standard:1600,sx_ap:1107,hnz:934,hosp_fixed:2235, anaesthetic:1100,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1141,sx_ap:1141,hnz:934,hosp_fixed:2235, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Polypectomy":
-    {standard:1600,sx_ap:1351,hnz:1076,hosp_fixed:2655, anaesthetic:1100,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1304,sx_ap:1304,hnz:1076,hosp_fixed:2655, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Polypectomy & EMR":
-    {standard:1600,sx_ap:1470,hnz:1249,hosp_fixed:4520, anaesthetic:1100,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1581,sx_ap:1581,hnz:1249,hosp_fixed:4520, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Haemorrhoid Band":
-    {standard:2100,sx_ap:1314,hnz:null,hosp_fixed:2620, anaesthetic:1100,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1271,sx_ap:1271,hnz:null,hosp_fixed:2620, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Extended Polypectomy":
-    {standard:1600,sx_ap:1401,hnz:1134,hosp_fixed:3895, anaesthetic:1100,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1304,sx_ap:1304,hnz:1134,hosp_fixed:3895, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── COMBINED GASTROSCOPY + COLONOSCOPY ─────────────────────────
   "Gastroscopy + Colonoscopy":
-    {standard:null,sx_ap:1374,hnz:1136,hosp_fixed:2820, anaesthetic:1100,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1414,sx_ap:1414,hnz:1136,hosp_fixed:2820, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Colonoscopy + Biopsy":
-    {standard:null,sx_ap:1488,hnz:1222,hosp_fixed:3025, anaesthetic:1100,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1461,sx_ap:1461,hnz:1222,hosp_fixed:3025, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Colonoscopy + Polypectomy":
-    {standard:null,sx_ap:1644,hnz:1364,hosp_fixed:3445, anaesthetic:1100,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1597,sx_ap:1597,hnz:1364,hosp_fixed:3445, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Colonoscopy + Extended Polypectomy":
-    {standard:null,sx_ap:1934,hnz:1536,hosp_fixed:4685, anaesthetic:1100,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1597,sx_ap:1597,hnz:1536,hosp_fixed:4685, anaesthetic:0,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Colonoscopy + EMR":
-    {standard:null,sx_ap:null,hnz:1651, anaesthetic:1100,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:null,sx_ap:1977,hnz:1651, anaesthetic:0,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── GASTROSCOPY ─────────────────────────────────────────────────
   "Gastroscopy & Orbera Balloon (CWLS)":
     {standard:850,sx_ap:null,hnz:null, anaesthetic:800,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
-  "Gastroscopy":
-    {standard:750,sx_ap:687,hnz:574,hosp_fixed:1695, anaesthetic:800,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+  "Gastroscopy ($707–$1,448)":
+    {standard:1022,sx_ap:1022,hnz:574,hosp_fixed:1695, anaesthetic:0,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Biopsy":
-    {standard:750,sx_ap:729,hnz:661,hosp_fixed:1900, anaesthetic:800,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:715,sx_ap:715,hnz:661,hosp_fixed:1900, anaesthetic:0,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Polypectomy":
-    {standard:1500,sx_ap:1265,hnz:null,hosp_fixed:2320, anaesthetic:800,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1355,sx_ap:1355,hnz:null,hosp_fixed:2320, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Oesophageal Dilatation":
-    {standard:1250,sx_ap:934,hnz:null,hosp_fixed:2580, anaesthetic:800,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:955,sx_ap:955,hnz:null,hosp_fixed:2580, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Balloon Dilatation":
-    {standard:1250,sx_ap:932,hnz:null,hosp_fixed:2580, anaesthetic:800,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:953,sx_ap:953,hnz:null,hosp_fixed:2580, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + EMR":
-    {standard:null,sx_ap:1417,hnz:null,hosp_fixed:3560, anaesthetic:800,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1448,sx_ap:1448,hnz:null,hosp_fixed:3560, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── FLEXIBLE SIGMOIDOSCOPY ──────────────────────────────────────
   "Flexible Sigmoidoscopy":
-    {standard:null,sx_ap:722,hnz:null,hosp_fixed:1625, anaesthetic:800,theatre_min:20,recovery_min:30,typical_stay:"Day Stay – Single Room"},
+    {standard:null,sx_ap:703,hnz:null,hosp_fixed:1625, anaesthetic:800,theatre_min:20,recovery_min:30,typical_stay:"Day Stay – Single Room"},
   "Flexible Sigmoidoscopy + Biopsy":
-    {standard:null,sx_ap:763,hnz:null,hosp_fixed:1830, anaesthetic:800,theatre_min:20,recovery_min:30,typical_stay:"Day Stay – Single Room"},
+    {standard:null,sx_ap:715,hnz:null,hosp_fixed:1830, anaesthetic:800,theatre_min:20,recovery_min:30,typical_stay:"Day Stay – Single Room"},
   "Flexible Sigmoidoscopy + Polypectomy":
-    {standard:null,sx_ap:1300,hnz:null,hosp_fixed:2250, anaesthetic:800,theatre_min:30,recovery_min:30,typical_stay:"Day Stay – Single Room"},
+    {standard:null,sx_ap:803,hnz:null,hosp_fixed:2250, anaesthetic:800,theatre_min:30,recovery_min:30,typical_stay:"Day Stay – Single Room"},
   // ── COLORECTAL ──────────────────────────────────────────────────
   "Laparoscopic Appendicectomy":
     {standard:3100,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
@@ -20948,6 +21017,9 @@ const PROC_NAMES = Object.keys(PROCEDURES).sort();
 // ── Consumable preset supply costs (pre-markup, NZD incl. GST, approximate) ──
 const CONS_MARKUP = 1.45;
 const PRESET_CONSUMABLES = {
+  // ── Anaesthetist add-ons ──
+  "Anaesthetist IV Sedation (Gastroscopy/Colonoscopy - 1100)": 0,  // Billed at $1,100
+  "Anaesthetist IV Sedation (Gastroscopy/Colonoscopy - 800)":  0,  // Billed at $800
   // ── Specialty mesh & devices ──
   "Bard 3D Max Mesh":                      520,
   "ProGrip Mesh":                          620,
@@ -20966,14 +21038,22 @@ const PRESET_CONSUMABLES = {
   "Blake Drain":                            55,
   "Suction / Irrigation Set":               85,
   // ── Hospital supply packages ──
-  // Base costs derived from St George's medical supplies billing figures.
-  // After 45% markup these bridge the gap between specialty items and
-  // what St George's charges patients for full theatre consumables.
-  "Hospital Supplies – Lap Cholecystectomy":   3074,  // → ~$4,900 total when combined with clips/bag/suction
-  "Hospital Supplies – Lap Hernia (add-on)":   2335,  // → ~$3,386; completes $5,300 beside mesh/tacker/balloon
-  "Hospital Supplies – Open Procedure":        1800,  // → ~$2,610; completes $3,100 beside open mesh
-  "Hospital Supplies – Complex Lap":           4346,  // → ~$6,302; completes $7,100 beside LigaSure
+  // Base costs recalibrated August 2026 to St George's medical-supplies
+  // "For Estimates" figures. After 45% markup the default consumables for
+  // each procedure land on the St George's estimate totals.
+  "Hospital Supplies – Lap Cholecystectomy":   2867,  // → ~$4,600 total when combined with clips/bag/suction
+  "Hospital Supplies – Lap Hernia (add-on)":   2404,  // → ~$3,486; completes $5,400 beside mesh/tacker/balloon
+  "Hospital Supplies – Open Procedure":        1839,  // → ~$2,667; completes $3,000 beside open mesh
+  "Hospital Supplies – Complex Lap":           4691,  // → ~$6,802; completes $7,600 beside LigaSure
   "Hospital Supplies – Major Incisional":      2212,  // → ~$3,207; completes $4,600 beside Sympotex+Tacker
+  "Hospital Supplies – Robotic Inguinal Hernia": 5025,  // → ~$7,286; completes $9,200 beside mesh/tacker/balloon
+  "Hospital Supplies – Epigastric Repair":       2653,  // → ~$3,847; completes $4,500 beside Parietex patch
+  "Hospital Supplies – Haemorrhoidectomy":       2414,  // → ~$3,500
+  "Hospital Supplies – Pilonidal Sinus":         2069,  // → ~$3,000
+  "Hospital Supplies – Anorectal (EUA / Fistula / Seton)": 2000,  // → ~$2,900
+  "Hospital Supplies – EUA + Botox":             2483,  // → ~$3,600
+  "Cholangiogram Catheter & Consumables":       276,  // → ~$400; brings Lap Chole + IOC to ~$5,000
+  "Robotic Consumables – Bilateral Inguinal Hernia": 2404,  // → ~$3,486; hospital supplies only (no tacker/balloon)
 };
 
 // ── Procedure-specific default consumables (name must match PRESET_CONSUMABLES key) ──
@@ -20982,9 +21062,10 @@ const PROC_CONSUMABLES = {
   "Hernia Inguinal Unilateral Laparoscopic Repair":  ["Bard 3D Max Mesh", "Tacker / Fixation Device", "Balloon Dissector", "Hospital Supplies – Lap Hernia (add-on)"],
   "Hernia Inguinal Bilateral Laparoscopic Repair":   ["Bard 3D Max Mesh", "Bard 3D Max Mesh", "Tacker / Fixation Device", "Balloon Dissector", "Hospital Supplies – Lap Hernia (add-on)"],
   "Laparoscopic Cholecystectomy + Inguinal Hernia Repair": ["Bard 3D Max Mesh", "Tacker / Fixation Device", "Balloon Dissector", "Hospital Supplies – Lap Hernia (add-on)"],
-  // ── INGUINAL – robotic: ProGrip only (self-gripping – no tacker or balloon)
-  "Hernia Inguinal Unilateral Robotic Repair":       ["ProGrip Mesh"],
-  "Hernia Inguinal Bilateral Robotic Repair":        ["ProGrip Mesh", "ProGrip Mesh"],
+  // ── INGUINAL – robotic: unilateral has NO default consumables – its $9,000
+  // set hospital fee is all-inclusive. Bilateral remains itemised.
+  // Bilateral robotic inguinal: two meshes + robotic-specific consumables to match laparoscopic cost
+  "Hernia Inguinal Bilateral Robotic Repair":        ["Bard 3D Max Mesh", "Bard 3D Max Mesh", "Robotic Consumables – Bilateral Inguinal Hernia"],
   // ── INGUINAL – open: heavyweight mesh + open supply package
   "Hernia Inguinal Unilateral Open Repair":          ["Mesh (heavyweight / open)", "Hospital Supplies – Open Procedure"],
   "Hernia Inguinal Bilateral Open Repair":           ["Mesh (heavyweight / open)", "Mesh (heavyweight / open)", "Hospital Supplies – Open Procedure"],
@@ -20992,23 +21073,27 @@ const PROC_CONSUMABLES = {
   // ── FEMORAL – laparoscopic: Bard 3D Max + Tacker + Balloon + supply package
   "Hernia Femoral Unilateral Laparoscopic Repair":   ["Bard 3D Max Mesh", "Tacker / Fixation Device", "Balloon Dissector", "Hospital Supplies – Lap Hernia (add-on)"],
   "Hernia Femoral Bilateral Laparoscopic Repair":    ["Bard 3D Max Mesh", "Bard 3D Max Mesh", "Tacker / Fixation Device", "Balloon Dissector", "Hospital Supplies – Lap Hernia (add-on)"],
-  // ── FEMORAL – robotic: ProGrip only
-  "Hernia Femoral Unilateral Robotic Repair":        ["ProGrip Mesh"],
-  "Hernia Femoral Bilateral Robotic Repair":         ["ProGrip Mesh", "ProGrip Mesh"],
+  // ── FEMORAL – robotic: same consumables as laparoscopic
+  "Hernia Femoral Unilateral Robotic Repair":        ["Bard 3D Max Mesh", "Tacker / Fixation Device", "Balloon Dissector", "Hospital Supplies – Robotic Inguinal Hernia"],
+  "Hernia Femoral Bilateral Robotic Repair":         ["Bard 3D Max Mesh", "Bard 3D Max Mesh", "Tacker / Fixation Device", "Balloon Dissector", "Hospital Supplies – Robotic Inguinal Hernia"],
   // ── FEMORAL – open
   "Hernia Femoral Unilateral Open Repair":           ["Mesh (heavyweight / open)", "Hospital Supplies – Open Procedure"],
   // ── INCISIONAL – laparoscopic: Sympotex + Tacker + supply package
   "Hernia Laparoscopic Umbilical / Incisional Repair": ["Sympotex Mesh", "Tacker / Fixation Device", "Hospital Supplies – Lap Hernia (add-on)"],
   "Hernia Incisional Repair Minor":                  ["Sympotex Mesh", "Tacker / Fixation Device", "Hospital Supplies – Open Procedure"],
   "Hernia Incisional Repair Major (>5cm)":           ["Sympotex Mesh", "Tacker / Fixation Device", "Hospital Supplies – Major Incisional"],
+  // ── INCISIONAL – robotic: same as major laparoscopic
+  "Hernia Incisional Robotic Repair":                ["Sympotex Mesh", "Tacker / Fixation Device", "Hospital Supplies – Major Incisional"],
+  // ── UMBILICAL MAJOR – robotic: same as laparoscopic umbilical/incisional
+  "Hernia Umbilical Major Robotic Repair":           ["Sympotex Mesh", "Tacker / Fixation Device", "Hospital Supplies – Lap Hernia (add-on)"],
   // ── UMBILICAL – open: Parietex Ventral Patch + open supply package
   "Hernia Umbilical Minor (≤5cm) Open Repair":       ["Parietex Ventral Patch", "Hospital Supplies – Open Procedure"],
   "Hernia Umbilical Major (>5cm) Open Repair":       ["Parietex Ventral Patch", "Hospital Supplies – Open Procedure"],
   "Laparoscopic Cholecystectomy + Umbilical Hernia Repair": ["Parietex Ventral Patch", "Surgical Clips / Ligaclips", "Endo Bag", "Hospital Supplies – Lap Cholecystectomy"],
   // ── CHOLECYSTECTOMY – clips + endo bag + suction + supply package
   "Laparoscopic Cholecystectomy":                        ["Surgical Clips / Ligaclips", "Endo Bag", "Suction / Irrigation Set", "Hospital Supplies – Lap Cholecystectomy"],
-  "Laparoscopic Cholecystectomy + Intra-Operative Cholangiogram": ["Surgical Clips / Ligaclips", "Endo Bag", "Suction / Irrigation Set", "Hospital Supplies – Lap Cholecystectomy"],
-  "Laparoscopic Cholecystectomy + IOC + Bile Exploration": ["Surgical Clips / Ligaclips", "Endo Bag", "Suction / Irrigation Set", "Hospital Supplies – Lap Cholecystectomy"],
+  "Laparoscopic Cholecystectomy + Intra-Operative Cholangiogram": ["Surgical Clips / Ligaclips", "Endo Bag", "Suction / Irrigation Set", "Cholangiogram Catheter & Consumables", "Hospital Supplies – Lap Cholecystectomy"],
+  "Laparoscopic Cholecystectomy + IOC + Bile Exploration": ["Surgical Clips / Ligaclips", "Endo Bag", "Suction / Irrigation Set", "Cholangiogram Catheter & Consumables", "Hospital Supplies – Lap Cholecystectomy"],
   "Laparoscopic Cholecystectomy + Division of Adhesions": ["Surgical Clips / Ligaclips", "Endo Bag", "Suction / Irrigation Set", "Hospital Supplies – Lap Cholecystectomy"],
   "Laparoscopic Cholecystectomy + Liver Biopsy":         ["Surgical Clips / Ligaclips", "Endo Bag", "Suction / Irrigation Set", "Hospital Supplies – Lap Cholecystectomy"],
   // ── HIATUS / PARAOESOPHAGEAL / FUNDOPLICATION – LigaSure + complex lap package
@@ -21016,6 +21101,14 @@ const PROC_CONSUMABLES = {
   "Hernia Paraoesophageal Laparoscopic Repair":           ["LigaSure (disposable)", "Hospital Supplies – Complex Lap"],
   "Laparoscopic Revision Fundoplication":                 ["LigaSure (disposable)", "Hospital Supplies – Complex Lap"],
   "Fundoplication (Southern Cross AP)":                   ["LigaSure (disposable)", "Hospital Supplies – Complex Lap"],
+  // ── EPIGASTRIC – open: Parietex patch + epigastric supply package
+  "Hernia Epigastric Open Repair":                        ["Parietex Ventral Patch", "Hospital Supplies – Epigastric Repair"],
+  // ── ANORECTAL – St George's med-supplies estimate packages
+  "Haemorrhoidectomy":                                    ["Hospital Supplies – Haemorrhoidectomy"],
+  "Pilonidal Sinus":                                      ["Hospital Supplies – Pilonidal Sinus"],
+  "Examination Under Anaesthetic + Proceed":              ["Hospital Supplies – Anorectal (EUA / Fistula / Seton)"],
+  "Examination Under Anaesthetic + Internal Sphincterotomy + Sigmoidoscopy": ["Hospital Supplies – Anorectal (EUA / Fistula / Seton)"],
+  "Examination Under Anaesthetic + Botox":                ["Hospital Supplies – EUA + Botox"],
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -21063,6 +21156,19 @@ function selectProc(name) {
     const baseCost = PRESET_CONSUMABLES[cname] || 0;
     return { name: cname, baseCost, chargedCost: Math.round(baseCost * CONS_MARKUP * 100) / 100 };
   });
+  
+  // Auto-add anaesthetist IV sedation for endoscopy procedures
+  if (PROCEDURES[name] && PROCEDURES[name].anaesthetic === 0 && 
+      (name.includes("Colonoscopy") || name.includes("Gastroscopy") || name.includes("Flexible Sigmoidoscopy")) &&
+      !name.includes("Orbera")) {
+    const anaesAmount = p && p.anaesthetic ? p.anaesthetic : 1100; // Fallback to 1100
+    consumables.push({
+      name: "Anaesthetist IV Sedation (optional)",
+      baseCost: 0,
+      chargedCost: anaesAmount
+    });
+  }
+  
   renderConsumables();
 }
 
@@ -21128,8 +21234,7 @@ function renderConsumables() {
       div.innerHTML =
         `<span class="cons-item-name">${escHtml(item.name)}</span>` +
         `<span class="cons-item-cost">` +
-          `<span class="cons-base">${nzd(item.baseCost)} + 45%&nbsp;&rarr;&nbsp;</span>` +
-          `${nzd(item.chargedCost)}` +
+          nzd(item.chargedCost) +
         `</span>` +
         `<button class="cons-remove" onclick="removeConsumable(${i})" title="Remove">&times;</button>`;
       list.appendChild(div);
@@ -21214,9 +21319,15 @@ function calculate() {
     return;
   }
 
-  const tFee  = (proc && proc.hosp_fixed !== undefined) ? proc.hosp_fixed : theatreFee(tMin);
-  const rFee  = (proc && proc.hosp_fixed !== undefined) ? 0 : recoveryFee(rMin);
-  const aFee  = accommodationFee(nights, roomType);
+  const hospName = getHospitalName();
+  const isSE = hospName === "Southern Endoscopy Centre";
+  const seHospFee = (isSE && insKey === "standard" && SE_HOSP_FEES[procName] !== undefined)
+    ? SE_HOSP_FEES[procName] : null;
+  const tFee  = seHospFee !== null ? seHospFee
+              : (proc && proc.hosp_fixed !== undefined) ? proc.hosp_fixed
+              : theatreFee(tMin);
+  const rFee  = (seHospFee !== null || (proc && proc.hosp_fixed !== undefined)) ? 0 : recoveryFee(rMin);
+  const aFee  = (proc && proc.accom_incl) ? 0 : accommodationFee(nights, roomType);
   const hospTotal = tFee + rFee + aFee;
   const consTotal   = consumables.reduce((s, c) => s + c.chargedCost, 0);
   const grandTotal  = (surgeonFee !== null ? surgeonFee : 0) + anaestheticFee + hospTotal + consTotal;
@@ -21231,11 +21342,13 @@ function calculate() {
   }
 
   document.getElementById("r_surgeon").textContent  = surgeonFee !== null ? nzd(surgeonFee) : "Not listed";
-  document.getElementById("r_anaes").textContent    = anaestheticFee > 0 ? nzd(anaestheticFee) : "N/A (local)";
-  const isFixed = proc && proc.hosp_fixed !== undefined;
+  const isEndoscopy = procName.includes("Colonoscopy") || procName.includes("Gastroscopy");
+  const anaesDisplay = anaestheticFee > 0 ? nzd(anaestheticFee) : (isEndoscopy ? "N/A (sedation)" : "N/A (local)");
+  document.getElementById("r_anaes").textContent    = anaesDisplay;
+  const isFixed = seHospFee !== null || (proc && proc.hosp_fixed !== undefined);
   document.getElementById("r_theatre").textContent  = isFixed ? nzd(tFee) + " (fixed fee)" : nzd(tFee);
   document.getElementById("r_recovery").textContent = isFixed ? "—" : nzd(rFee);
-  document.getElementById("r_accom").textContent    = nzd(aFee);
+  document.getElementById("r_accom").textContent    = (proc && proc.accom_incl) ? "Included" : nzd(aFee);
   document.getElementById("r_hosp").textContent     = nzd(hospTotal);
   document.getElementById("r_total").textContent    = nzd(grandTotal);
 
@@ -21248,7 +21361,8 @@ function calculate() {
   }
 
   lastCalc = { procName, insKey, stay, tMin, rMin,
-    surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal };
+    surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
+    isSE, seHospFee };
 }
 
 function clearForm() {
@@ -21323,7 +21437,6 @@ async function generateDoc() {
   const dob      = document.getElementById("dob").value.trim() || "—";
   const estDate  = document.getElementById("estimateDate").value.trim();
   // surgeon already defined above for logo
-  const hospital = document.getElementById("hospital").value.trim();
   const notes    = document.getElementById("notes").value.trim();
   const insKey   = lastCalc.insKey;
   const insLabels = {
@@ -21334,7 +21447,8 @@ async function generateDoc() {
   const insLabel = insLabels[insKey] || "Standard Private";
 
   const { surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
-          tMin, rMin, stay, procName } = lastCalc;
+          tMin, rMin, stay, procName, isSE, seHospFee } = lastCalc;
+  const hospital = getHospitalName();
 
   const proc = PROCEDURES[procName];
 
@@ -21559,17 +21673,19 @@ async function generateDoc() {
         makeCell("Amount (NZD incl. GST)", COL2, NAVY, WHITE, true, true, 20)
       ]}),
       costRow("Surgeon's Fee",                surgeonStr,             false, false),
-      costRow("Anaesthetist's Fee \u2020",     anaestheticFee > 0 ? nzd(anaestheticFee) : "N/A (local anaesthetic)", false, false),
-      ...(proc && proc.hosp_fixed !== undefined
-        ? [costRow("Hospital Fee \u2013 Procedure (St George\u2019s Fixed Fee)", nzd(tFee), false, false)]
-        : [
-            costRow(`Hospital Fee \u2013 Theatre (${tMin} min estimated)`, nzd(tFee), false, false),
-            costRow(`Hospital Fee \u2013 Recovery (${rMin} min estimated)`, nzd(rFee), false, false),
-          ]),
-      costRow(`Hospital Fee \u2013 Accommodation (${stay})`,          nzd(aFee),  false, false),
+      costRow("Anaesthetist's Fee \u2020",     anaestheticFee > 0 ? nzd(anaestheticFee) : (procName.includes("Colonoscopy") || procName.includes("Gastroscopy") ? "N/A (IV sedation)" : "N/A (local anaesthetic)"), false, false),
+      ...(seHospFee !== null && seHospFee !== undefined
+        ? [costRow("Hospital Fee \u2013 Procedure (Southern Endoscopy Centre, avg.)", nzd(tFee), false, false)]
+        : proc && proc.hosp_fixed !== undefined
+          ? [costRow("Hospital Fee \u2013 Procedure (St George\u2019s Fixed Fee)", nzd(tFee), false, false)]
+          : [
+              costRow(`Hospital Fee \u2013 Theatre (${tMin} min estimated)`, nzd(tFee), false, false),
+              costRow(`Hospital Fee \u2013 Recovery (${rMin} min estimated)`, nzd(rFee), false, false),
+            ]),
+      costRow(`Hospital Fee \u2013 Accommodation (${stay})`,          (proc && proc.accom_incl) ? "Included" : nzd(aFee),  false, false),
       costRow("Hospital Total",               nzd(hospTotal),         true,  false),
       ...consumables.map(c => costRow(
-        `Consumable \u2013 ${c.name}  (supply ${nzd(c.baseCost)} + 45%)`,
+        `Consumable \u2013 ${c.name}`,
         nzd(c.chargedCost), false, false)),
       ...(consumables.length > 1 ? [costRow("Consumables Total", nzd(consTotal), true, false)] : []),
       costRow("TOTAL ESTIMATE",               nzd(grandTotal),        true,  true),
@@ -21619,13 +21735,18 @@ async function generateDoc() {
     para(""),
     fn("\u2020 Anaesthetist's fee is an estimate only. The anaesthetist will bill separately and their actual fee may vary depending on the duration and complexity of the procedure."),
     fn("All fees are in New Zealand Dollars (NZD) and include GST at 15%."),
-    fn("Hospital fees are based on the St George\u2019s Hospital Fees Schedule effective 1 April 2026 and are calculated on estimated theatre and recovery times. Actual charges may vary."),
+    isSE && seHospFee
+      ? fn("Hospital fees are based on the Southern Endoscopy Centre fee-for-service average prices (standard private). Fees shown are averages from a 9-month snapshot and may be higher if additional intervention or time is required.")
+      : fn("Hospital fees are based on the St George\u2019s Hospital Fees Schedule effective 1 April 2026 and are calculated on estimated theatre and recovery times. Actual charges may vary."),
     fn("This estimate is provided as a guide only and does not constitute a guarantee of cost. Patients are encouraged to contact their insurer prior to admission to confirm cover."),
     ...(consumables.length > 0 ? [fn(
-      "Consumable costs shown include a 45% hospital facility markup applied to the supply price. " +
       "Actual consumable charges are confirmed at time of surgery and may vary."
     )] : []),
     fn("Medical supplies, implants, and any additional clinical care are charged separately as incurred."),
+    para("", { size: 18, after: 0 }),
+    para("Note: Colonoscopy and gastroscopy fees shown are average estimates. The final surgeon fee will vary depending on the specific procedures performed (biopsies, polypectomy, dilatation, etc.). Actual costs may range from $1,049–$1,581 for colonoscopy and $707–$1,448 for gastroscopy.", { size: 16, after: 100, italic: true }),
+    para("For queries regarding hospital costs, contact Sarah Jane at St George's Hospital on 03 375 6101", { size: 18, after: 40 }),
+    para("For queries regarding anaesthetist costs, contact Anaesthetic Associates on 03 365 3777", { size: 18, after: 100 }),
   ];
 
   if (notes) {
