@@ -21743,8 +21743,10 @@ async function generateDoc() {
       "Actual consumable charges are confirmed at time of surgery and may vary."
     )] : []),
     fn("Medical supplies, implants, and any additional clinical care are charged separately as incurred."),
-    para("", { size: 18, after: 0 }),
-    para("Note: Colonoscopy and gastroscopy fees shown are average estimates. The final surgeon fee will vary depending on the specific procedures performed (biopsies, polypectomy, dilatation, etc.). Actual costs may range from $1,049–$1,581 for colonoscopy and $707–$1,448 for gastroscopy.", { size: 16, after: 100, italic: true }),
+    ...(procName.includes("Colonoscopy") || procName.includes("Gastroscopy") ? [
+      para("", { size: 18, after: 0 }),
+      para("Note: Colonoscopy and gastroscopy fees shown are average estimates. The final surgeon fee will vary depending on the specific procedures performed (biopsies, polypectomy, dilatation, etc.). Actual costs may range from $1,049–$1,581 for colonoscopy and $707–$1,448 for gastroscopy.", { size: 16, after: 100, italic: true }),
+    ] : []),
     para("For queries regarding hospital costs, contact Sarah Jane at St George's Hospital on 03 375 6101", { size: 18, after: 40 }),
     para("For queries regarding anaesthetist costs, contact Anaesthetic Associates on 03 365 3777", { size: 18, after: 100 }),
   ];
