@@ -20512,6 +20512,7 @@ var __async = (__this, __arguments, generator) => {
           <option value="standard">Standard Private</option>
           <option value="sx_ap">Southern Cross Affiliated Provider (AP)</option>
           <option value="hnz">Health New Zealand (HNZ)</option>
+          <option value="other">Other Insurer</option>
         </select>
       </div>
       <div class="form-row">
@@ -20573,9 +20574,10 @@ var __async = (__this, __arguments, generator) => {
         <button class="quick-btn" onclick="quickAdd('Endo Bag')">Endo Bag</button>
         <button class="quick-btn" onclick="quickAdd('Blake Drain')">Drain</button>
         <button class="quick-btn" onclick="quickAdd('Suction / Irrigation Set')">Suction Set</button>
+        <button class="quick-btn" onclick="quickAdd('Anaesthetist IV Sedation (optional)')">IV Sedation</button>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">
-        Enter the <strong>supply cost</strong> — 45% hospital markup is applied automatically.
+        Enter the <strong>supply cost</strong> — the charged amount is calculated automatically.
       </div>
 
       <div class="cons-add-row">
@@ -20651,7 +20653,7 @@ var __async = (__this, __arguments, generator) => {
 
       <button class="btn-generate-panel" onclick="generateDoc()">⬇ Generate Word Document</button>
 
-      <div class="summary-note">
+      <div class="summary-note" id="summaryNote">
         † Anaesthetist bills separately. Estimate only – actual fee varies by duration and complexity.<br><br>
         Hospital fees: St George's schedule effective 1 April 2026.<br>
         Inguinal hernia fixed prices: St George's Set Fee Schedule effective 1 August 2026 (self-funding patients).<br>
@@ -20708,15 +20710,27 @@ const SET_FEE_EFFECTIVE = "1 August 2026";
 const ST_GEORGE_SET_FEES = {
   "Hernia Inguinal Unilateral Laparoscopic Repair": { price:  9000, accomNightsIncl: 1 },
   "Hernia Inguinal Bilateral Laparoscopic Repair":  { price: 10000, accomNightsIncl: 1 },
-  "Hernia Inguinal Unilateral Robotic Repair":      { price:  9000, accomNightsIncl: 0 },
-  "Hernia Inguinal Bilateral Robotic Repair":       { price: 10000, accomNightsIncl: 0 }
+  // Robotic inguinal repair is only offered as a fixed price package (it includes
+  // the robotic instrumentation), so it applies regardless of the insurer selected.
+  "Hernia Inguinal Unilateral Robotic Repair":      { price:  9000, accomNightsIncl: 0, allInsurers: true },
+  "Hernia Inguinal Bilateral Robotic Repair":       { price: 10000, accomNightsIncl: 0, allInsurers: true }
 };
 
 // Returns the set-fee record, or null if it does not apply.
 function getSetFee(procName, insKey, hospName) {
-  if (insKey !== "standard") return null;          // self-funding patients only
-  if (hospName !== SET_FEE_HOSPITAL) return null;  // St George's only
-  return ST_GEORGE_SET_FEES[procName] || null;
+  if (hospName !== SET_FEE_HOSPITAL) return null;          // St George's only
+  const sf = ST_GEORGE_SET_FEES[procName];
+  if (!sf) return null;
+  if (!sf.allInsurers && insKey !== "standard") return null; // otherwise self-funding only
+  return sf;
+}
+
+// Attribution for a fixed hospital fee – must match the hospital / insurer selected.
+function fixedFeeLabel(hospName, insKey) {
+  if (hospName === "Southern Endoscopy Centre") return "Southern Endoscopy Centre Fixed Fee";
+  if (insKey === "sx_ap")                       return "Southern Cross Affiliated Provider Fixed Fee";
+  if (hospName === SET_FEE_HOSPITAL)            return "St George\u2019s Fixed Fee";
+  return hospName + " Fixed Fee";
 }
 function nightlyRate(roomType) { return roomType === "single" ? 1195 : 1080; }
 
@@ -20732,16 +20746,22 @@ function setFeeAccomLabel(sf, nights, roomType, aFee) {
   nights = parseInt(nights) || 0;
   if (sf.accomNightsIncl > 0) {
     const extra = Math.max(0, nights - sf.accomNightsIncl);
-    if (extra === 0) return "Included (" + sf.accomNightsIncl + " night)";
+    if (extra === 0) return "Included in fixed price";
     return nzd(aFee) + " (" + extra + " extra night" + (extra > 1 ? "s" : "") + ")";
   }
-  return nzd(aFee) + " (not included in set fee)";
+  return nzd(aFee) + " (not included in fixed price)";
+}
+
+// Keeps the on-screen notes consistent with the figures actually displayed.
+function setSummaryNote(lines) {
+  const el = document.getElementById("summaryNote");
+  if (el) el.innerHTML = lines.map(t => t === "" ? "" : escHtml(t)).join("<br>");
 }
 
 function theatreFee(m) {
   m = Math.max(0, Math.round(m));
   if (m === 0) return 0;
-  if (m > 360) return 8850 + Math.ceil((m - 360) / 30) * 740;
+  if (m > 360) return 8850 + Math.ceil((m - 360) / 30) * 610;
   for (const [lo, hi, fee] of THEATRE_FEES) if (m >= lo && m <= hi) return fee;
   return 8850;
 }
@@ -20856,15 +20876,15 @@ const PROCEDURES = {
   "Hernia Inguinal Unilateral Robotic Repair":
     {standard:3000,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Unilateral Open Repair":
-    {standard:null,sx_ap:2453,hnz:2393, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3500,sx_ap:2453,hnz:2393, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Open Repair under Local Anaesthetic":
-    {standard:null,sx_ap:2488,hnz:null, anaesthetic:0,theatre_min:45,recovery_min:30,typical_stay:"Day Stay – Single Room"},
+    {standard:3500,sx_ap:2488,hnz:null, anaesthetic:0,theatre_min:45,recovery_min:30,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Bilateral Laparoscopic Repair":
     {standard:4000,sx_ap:3854,hnz:3335, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Bilateral Robotic Repair":
     {standard:4000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Bilateral Open Repair":
-    {standard:null,sx_ap:3818,hnz:null, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4500,sx_ap:3818,hnz:null, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – FEMORAL ────────────────────────────────────────────
   "Hernia Femoral Unilateral Laparoscopic Repair":
     {standard:3000,sx_ap:2578,hnz:2462, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
@@ -21076,12 +21096,22 @@ const PROCEDURES = {
 
 const PROC_NAMES = Object.keys(PROCEDURES).sort();
 
-// ── Consumable preset supply costs (pre-markup, NZD incl. GST, approximate) ──
+// ── Consumable preset supply costs (NZD incl. GST, approximate) ──
 const CONS_MARKUP = 1.45;
+// Pass-through items billed at cost – no adjustment is applied.
+const NO_MARKUP_ITEMS = new Set([
+  "Anaesthetist IV Sedation (optional)",
+  "Anaesthetist IV Sedation (optional, reduced rate)"
+]);
+function chargedFor(name, baseCost) {
+  const c = NO_MARKUP_ITEMS.has(name) ? baseCost : baseCost * CONS_MARKUP;
+  return Math.round(c * 100) / 100;
+}
 const PRESET_CONSUMABLES = {
   // ── Anaesthetist add-ons ──
-  "Anaesthetist IV Sedation (Gastroscopy/Colonoscopy - 1100)": 0,  // Billed at $1,100
-  "Anaesthetist IV Sedation (Gastroscopy/Colonoscopy - 800)":  0,  // Billed at $800
+  // Anaesthetist charges are pass-through: charged at cost.
+  "Anaesthetist IV Sedation (optional)":                1100,
+  "Anaesthetist IV Sedation (optional, reduced rate)":   800,
   // ── Specialty mesh & devices ──
   "Bard 3D Max Mesh":                      520,
   "ProGrip Mesh":                          620,
@@ -21101,8 +21131,8 @@ const PRESET_CONSUMABLES = {
   "Suction / Irrigation Set":               85,
   // ── Hospital supply packages ──
   // Base costs recalibrated August 2026 to St George's medical-supplies
-  // "For Estimates" figures. After 45% markup the default consumables for
-  // each procedure land on the St George's estimate totals.
+  // "For Estimates" figures, so that the default consumables for each
+  // procedure land on the St George's estimate totals.
   "Hospital Supplies – Lap Cholecystectomy":   2867,  // → ~$4,600 total when combined with clips/bag/suction
   "Hospital Supplies – Lap Hernia (add-on)":   2404,  // → ~$3,486; completes $5,400 beside mesh/tacker/balloon
   "Hospital Supplies – Open Procedure":        1839,  // → ~$2,667; completes $3,000 beside open mesh
@@ -21127,7 +21157,8 @@ const PROC_CONSUMABLES = {
   // ── INGUINAL – robotic: unilateral has NO default consumables – its $9,000
   // set hospital fee is all-inclusive. Bilateral remains itemised.
   // Bilateral robotic inguinal: two meshes + robotic-specific consumables to match laparoscopic cost
-  "Hernia Inguinal Bilateral Robotic Repair":        ["Bard 3D Max Mesh", "Bard 3D Max Mesh", "Robotic Consumables – Bilateral Inguinal Hernia"],
+  // Robotic inguinal repairs: consumables are covered by the fixed hospital price,
+  // so nothing is auto-loaded for either the unilateral or bilateral procedure.
   // ── INGUINAL – open: heavyweight mesh + open supply package
   "Hernia Inguinal Unilateral Open Repair":          ["Mesh (heavyweight / open)", "Hospital Supplies – Open Procedure"],
   "Hernia Inguinal Bilateral Open Repair":           ["Mesh (heavyweight / open)", "Mesh (heavyweight / open)", "Hospital Supplies – Open Procedure"],
@@ -21205,8 +21236,8 @@ function selectProc(name) {
   selectedProc = name;
   procInput.value = name;
   procDropdown.classList.remove("open");
-  if (PROCEDURES[name]) {
-    const p  = PROCEDURES[name];
+  const p = PROCEDURES[name];          // function-scoped so it is usable throughout
+  if (p) {
     const ts = p.typical_stay; // e.g. "Day Stay – Single Room" or "Overnight – Single Room"
     document.getElementById("theatreMin").value  = p.theatre_min;
     document.getElementById("recoveryMin").value = p.recovery_min;
@@ -21216,19 +21247,16 @@ function selectProc(name) {
   // Auto-load procedure-specific consumables; clear list if none defined for this procedure
   consumables = (PROC_CONSUMABLES[name] || []).map(cname => {
     const baseCost = PRESET_CONSUMABLES[cname] || 0;
-    return { name: cname, baseCost, chargedCost: Math.round(baseCost * CONS_MARKUP * 100) / 100 };
+    return { name: cname, baseCost, chargedCost: chargedFor(cname, baseCost) };
   });
   
   // Auto-add anaesthetist IV sedation for endoscopy procedures
-  if (PROCEDURES[name] && PROCEDURES[name].anaesthetic === 0 && 
+  if (p && p.anaesthetic === 0 &&
       (name.includes("Colonoscopy") || name.includes("Gastroscopy") || name.includes("Flexible Sigmoidoscopy")) &&
       !name.includes("Orbera")) {
-    const anaesAmount = p && p.anaesthetic ? p.anaesthetic : 1100; // Fallback to 1100
-    consumables.push({
-      name: "Anaesthetist IV Sedation (optional)",
-      baseCost: 0,
-      chargedCost: anaesAmount
-    });
+    const sedName = "Anaesthetist IV Sedation (optional)";
+    const amount  = PRESET_CONSUMABLES[sedName];   // $1,100, charged at cost
+    consumables.push({ name: sedName, baseCost: amount, chargedCost: chargedFor(sedName, amount) });
   }
   
   renderConsumables();
@@ -21316,7 +21344,7 @@ function addConsumable() {
   const baseCost = parseFloat(costEl.value);
   if (!name)                          { nameEl.focus(); return; }
   if (isNaN(baseCost) || baseCost < 0) { costEl.focus(); return; }
-  const chargedCost = Math.round(baseCost * CONS_MARKUP * 100) / 100;
+  const chargedCost = chargedFor(name, baseCost);
   consumables.push({ name, baseCost, chargedCost });
   nameEl.value = "";
   costEl.value = "";
@@ -21351,6 +21379,10 @@ let lastCalc = null;
 function calculate() {
   const procName = procInput.value.trim();
   const insKey   = document.getElementById("insurance").value;
+  // "Other Insurer": surgeon's fee at Standard Private rates, but hospital,
+  // anaesthetist and consumable pricing follows Southern Cross Affiliated Provider.
+  const isOtherIns = insKey === "other";
+  const hospKey    = isOtherIns ? "sx_ap" : insKey;
   const tMin     = parseInt(document.getElementById("theatreMin").value) || 60;
   const rMin     = parseInt(document.getElementById("recoveryMin").value) || 60;
 
@@ -21359,7 +21391,18 @@ function calculate() {
   const stay     = stayLabel(nights, roomType);
 
   const proc = PROCEDURES[procName];
-  const surgeonFee     = proc ? (proc[insKey] ?? null) : null;
+  let surgeonFee = null, surgeonFeeFallback = false;
+  if (proc) {
+    if (isOtherIns) {
+      surgeonFee = proc.standard ?? null;
+      if (surgeonFee === null) {                 // no standard private fee listed
+        surgeonFee = proc.sx_ap ?? null;         // → fall back to Southern Cross AP
+        surgeonFeeFallback = surgeonFee !== null;
+      }
+    } else {
+      surgeonFee = proc[insKey] ?? null;
+    }
+  }
   const anaestheticFee = proc ? proc.anaesthetic : 0;
   // ── All-inclusive set fee (bariatric) ──
   if (proc && proc.set_fee !== undefined) {
@@ -21375,6 +21418,12 @@ function calculate() {
     const warnEl = document.getElementById("warnBanner");
     warnEl.classList.remove("show");
     document.getElementById("r_total").textContent = nzd(setFee);
+    setSummaryNote([
+      "\u2020 Anaesthetist's fee is included in the all-inclusive package price.",
+      "",
+      "This procedure is quoted as a single all-inclusive package covering the surgeon's fee, hospital fees, anaesthetist's fee and all consumables.",
+      "All fees NZD incl. GST 15%."
+    ]);
     lastCalc = { procName, insKey, stay: stayLabel(nights, roomType), tMin, rMin,
                  surgeonFee: null, anaestheticFee: 0, tFee: 0, rFee: 0, aFee: 0,
                  hospTotal: 0, consTotal: 0, grandTotal: setFee };
@@ -21383,11 +21432,11 @@ function calculate() {
 
   const hospName = getHospitalName();
   const isSE = hospName === "Southern Endoscopy Centre";
-  const seHospFee = (isSE && insKey === "standard" && SE_HOSP_FEES[procName] !== undefined)
+  const seHospFee = (isSE && hospKey === "standard" && SE_HOSP_FEES[procName] !== undefined)
     ? SE_HOSP_FEES[procName] : null;
 
   // ── St George's fixed price (inguinal hernia, self-funding patients) ──
-  const setFee = getSetFee(procName, insKey, hospName);
+  const setFee = getSetFee(procName, hospKey, hospName);
 
   const tFee  = seHospFee !== null ? seHospFee
               : setFee ? setFee.price
@@ -21433,6 +21482,9 @@ function calculate() {
   if (proc && surgeonFee === null) {
     warnEl.textContent = "⚠ Surgeon fee not listed for this insurance type — document will note this.";
     warnEl.classList.add("show");
+  } else if (surgeonFeeFallback) {
+    warnEl.textContent = "⚠ No Standard Private surgeon fee listed for this procedure — the Southern Cross Affiliated Provider fee has been used instead.";
+    warnEl.classList.add("show");
   } else {
     warnEl.classList.remove("show");
   }
@@ -21443,7 +21495,8 @@ function calculate() {
   document.getElementById("r_anaes").textContent    = anaesDisplay;
   const isFixed = seHospFee !== null || setFee || (proc && proc.hosp_fixed !== undefined);
   const thLbl = document.getElementById("r_theatre_lbl");
-  if (thLbl) thLbl.textContent = setFee ? "Hospital Fixed Price" : "Theatre";
+  if (thLbl) thLbl.textContent = setFee ? "Hospital Fixed Price"
+                               : isFixed ? "Hospital Fixed Fee" : "Theatre";
   document.getElementById("r_theatre").textContent  = setFee ? nzd(tFee) + " (set fee)"
                                                     : isFixed ? nzd(tFee) + " (fixed fee)" : nzd(tFee);
   document.getElementById("r_recovery").textContent = setFee ? "Included"
@@ -21465,9 +21518,27 @@ function calculate() {
     consRow.style.display = "none";
   }
 
+  // ── On-screen notes: mirror the document footnotes ──
+  const usesSEPrices = !!(isSE && seHospFee);
+  const hasHospFixed = !!(proc && proc.hosp_fixed !== undefined) && !usesSEPrices && !setFee;
+  const hasSedation  = !setFee && consumables.some(c => /IV Sedation/i.test(c.name));
+  const noteLines = [];
+  if (anaestheticFee > 0)  noteLines.push("\u2020 Anaesthetist bills separately. Estimate only \u2013 actual fee varies by duration and complexity.");
+  else if (hasSedation)    noteLines.push("\u2020 No anaesthetist's fee \u2013 IV sedation is listed under consumables and billed separately.");
+  else                     noteLines.push("\u2020 No anaesthetist's fee \u2013 performed under local anaesthetic.");
+  noteLines.push("");
+  if (surgeonFee === null && procName) noteLines.push("Surgeon's fee is not listed for this insurer and is NOT included in the total.");
+  if (usesSEPrices)        noteLines.push("Hospital fees: Southern Endoscopy Centre fee-for-service averages (standard private).");
+  else if (setFee)         noteLines.push("Hospital fees: fixed price under the St George's Set Fee Schedule effective " + SET_FEE_EFFECTIVE + (setFee.allInsurers ? "." : " (self-funding patients)."));
+  else if (hasHospFixed)   noteLines.push("Hospital fees: fixed price (" + fixedFeeLabel(hospName, insKey) + "), plus accommodation charged separately.");
+  else                     noteLines.push("Hospital fees: " + (hospName === SET_FEE_HOSPITAL ? "St George's schedule effective 1 April 2026" : hospName) + ", calculated on the estimated theatre and recovery times above.");
+  noteLines.push("Surgeon fees: pricing schedules reviewed August 2026.");
+  noteLines.push("All fees NZD incl. GST 15%.");
+  setSummaryNote(noteLines);
+
   lastCalc = { procName, insKey, stay, tMin, rMin, nights, roomType,
     surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
-    isSE, seHospFee, setFee };
+    isSE, seHospFee, setFee, isOtherIns, surgeonFeeFallback };
 }
 
 function clearForm() {
@@ -21553,12 +21624,14 @@ async function generateDoc() {
   const insLabels = {
     standard: "Standard Private",
     sx_ap:    "Southern Cross Affiliated Provider (AP)",
-    hnz:      "Health New Zealand (HNZ)"
+    hnz:      "Health New Zealand (HNZ)",
+    other:    "Other Insurer"
   };
   const insLabel = insLabels[insKey] || "Standard Private";
 
   const { surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
-          tMin, rMin, stay, procName, isSE, seHospFee, setFee, nights, roomType } = lastCalc;
+          tMin, rMin, stay, procName, isSE, seHospFee, setFee, nights, roomType,
+          isOtherIns, surgeonFeeFallback } = lastCalc;
   // Consumables are covered by a fixed price and are not itemised in the document
   const docConsumables = setFee ? [] : consumables;
   const hospital = getHospitalName();
@@ -21792,7 +21865,7 @@ async function generateDoc() {
         : setFee
           ? [costRow("Hospital Fee \u2013 Fixed Price Procedure (St George\u2019s Set Fee Schedule)", nzd(tFee), false, false)]
         : proc && proc.hosp_fixed !== undefined
-          ? [costRow("Hospital Fee \u2013 Procedure (St George\u2019s Fixed Fee)", nzd(tFee), false, false)]
+          ? [costRow(`Hospital Fee \u2013 Procedure (${fixedFeeLabel(hospital, insKey)})`, nzd(tFee), false, false)]
           : [
               costRow(`Hospital Fee \u2013 Theatre (${tMin} min estimated)`, nzd(tFee), false, false),
               costRow(`Hospital Fee \u2013 Recovery (${rMin} min estimated)`, nzd(rFee), false, false),
@@ -21829,6 +21902,92 @@ async function generateDoc() {
     : "General & Bariatric Surgery, Endoscopist";
   const qualLine = surgeon === "Steven Kelly" ? "MBChB, FRACS" : "MBChB, FRACS";
 
+  // ══════════════════════════════════════════════════════════════
+  // FOOTNOTES – every disclaimer is conditional so that the wording
+  // never refers to a charge that does not appear in the breakdown.
+  // ══════════════════════════════════════════════════════════════
+  function buildFootnotes(fn, para) {
+    const out = [];
+    const isStGeorges  = hospital === SET_FEE_HOSPITAL;
+    const usesSEPrices = !!(isSE && seHospFee);
+    const hasHospFixed = !!(proc && proc.hosp_fixed !== undefined) && !usesSEPrices && !setFee;
+    const timeBased    = !usesSEPrices && !setFee && !hasHospFixed;
+    const hasSedation  = docConsumables.some(c => /IV Sedation/i.test(c.name));
+
+    // ── Anaesthetist (the \u2020 on the cost table) ──
+    if (anaestheticFee > 0) {
+      out.push(fn("\u2020 Anaesthetist\u2019s fee is an estimate only. The anaesthetist will bill separately and their actual fee may vary depending on the duration and complexity of the procedure."));
+    } else if (hasSedation) {
+      out.push(fn("\u2020 No separate anaesthetist\u2019s fee is charged for this procedure. IV sedation is itemised above, is billed separately by the anaesthetist, and may vary."));
+    } else {
+      out.push(fn("\u2020 No anaesthetist\u2019s fee applies \u2013 this procedure is performed under local anaesthetic."));
+    }
+
+    out.push(fn("All fees are in New Zealand Dollars (NZD) and include GST at 15%."));
+
+    // ── Surgeon's fee not listed → it is NOT in the total ──
+    if (surgeonFee === null) {
+      out.push(fn("No surgeon\u2019s fee is listed for this insurance type, so no surgeon\u2019s fee is included in the total estimate shown. Please contact the rooms for a quote."));
+    }
+
+    // ── Mixed basis (Other Insurer) ──
+    if (isOtherIns) {
+      out.push(fn(surgeonFeeFallback
+        ? "The surgeon\u2019s fee shown is the Southern Cross Affiliated Provider rate, as no standard private rate is listed for this procedure. Hospital, anaesthetist and consumable costs are estimated using Southern Cross Affiliated Provider pricing."
+        : "The surgeon\u2019s fee shown is the standard private rate. Hospital, anaesthetist and consumable costs are estimated using Southern Cross Affiliated Provider pricing. Please confirm cover and any shortfall with your insurer prior to admission."));
+    }
+
+    // ── Basis of the hospital fees actually itemised above ──
+    if (usesSEPrices) {
+      out.push(fn("Hospital fees are based on the Southern Endoscopy Centre fee-for-service average prices (standard private). Fees shown are averages from a 9-month snapshot and may be higher if additional intervention or time is required."));
+    } else if (setFee) {
+      out.push(fn(`Hospital fees are a fixed price under the St George\u2019s Hospital Fixed Price Procedures / Set Fee Schedule effective ${SET_FEE_EFFECTIVE}${setFee.allInsurers ? "" : " (self-funding patients only)"}. The fixed price of ${nzd(setFee.price)} covers the hospital stay${setFee.accomNightsIncl > 0 ? ` (including ${setFee.accomNightsIncl} night accommodation)` : " (accommodation excluded and charged separately)"} and all consumables and medical supplies. Accommodation beyond the stated allowance and any return to theatre are charged in addition.`));
+    } else if (hasHospFixed) {
+      out.push(fn(`The hospital fee for this procedure is a fixed price of ${nzd(tFee)} (${fixedFeeLabel(hospital, insKey)}) covering theatre and recovery. Accommodation is charged separately as shown above. The fixed price may not apply if additional intervention or time is required.`));
+    } else {
+      out.push(fn(`Hospital fees are based on the ${isStGeorges ? "St George\u2019s Hospital Fees Schedule effective 1 April 2026" : hospital + " fee schedule"} and are calculated on the estimated theatre (${tMin} min) and recovery (${rMin} min) times shown above. Actual charges will vary if the procedure takes longer than estimated.`));
+    }
+
+    out.push(fn("This estimate is provided as a guide only and does not constitute a guarantee of cost. Patients are encouraged to contact their insurer prior to admission to confirm cover."));
+
+    // ── Consumables: only mentioned when consumables are itemised ──
+    if (setFee) {
+      const totalParts = [];
+      if (surgeonFee !== null) totalParts.push("surgeon\u2019s fee");
+      if (anaestheticFee > 0)  totalParts.push("anaesthetist\u2019s fee");
+      totalParts.push("fixed hospital price");
+      if (aFee > 0)            totalParts.push("additional accommodation");
+      out.push(fn(`Total estimate = ${totalParts.join(" + ")}. No separate theatre, recovery or consumable charges apply.`));
+    } else {
+      if (docConsumables.length > 0) {
+        out.push(fn("Actual consumable charges are confirmed at time of surgery and may vary."));
+      }
+      out.push(fn("Medical supplies, implants, and any additional clinical care are charged separately as incurred."));
+    }
+
+    // ── Endoscopy fee ranges: only the range(s) that apply ──
+    const isColon  = /Colonoscopy|Sigmoidoscopy/.test(procName);
+    const isGastro = /Gastroscopy/.test(procName);
+    if ((isColon || isGastro) && surgeonFee !== null) {
+      const ranges = [];
+      if (isColon)  ranges.push("$1,049\u2013$1,581 for colonoscopy");
+      if (isGastro) ranges.push("$707\u2013$1,448 for gastroscopy");
+      out.push(para("", { size: 18, after: 0 }));
+      out.push(para(`Note: the surgeon\u2019s fee shown is an average estimate. The final fee will vary depending on the specific procedures performed (biopsies, polypectomy, dilatation, etc.) and may range from ${ranges.join(" and ")}.`,
+        { size: 16, after: 100, italic: true }));
+    }
+
+    // ── Contacts: only those relevant to this estimate ──
+    out.push(para(isStGeorges
+      ? "For queries regarding hospital costs, contact Sarah Jane at St George\u2019s Hospital on 03 375 6101"
+      : `For queries regarding hospital costs, please contact ${hospital} directly.`,
+      { size: 18, after: 40 }));
+    if (anaestheticFee > 0 || hasSedation) {
+      out.push(para("For queries regarding anaesthetist costs, contact Anaesthetic Associates on 03 365 3777", { size: 18, after: 100 }));
+    }
+    return out;
+  }
+
   const children = [
     ...(logoParaForDoc ? [logoParaForDoc] : [
       para(surgeon,    { bold: true, size: 32, color: NAVY, after: 40 }),
@@ -21851,26 +22010,7 @@ async function generateDoc() {
     para("ESTIMATED COST BREAKDOWN", { bold: true, size: 22, color: NAVY, after: 80 }),
     costTable,
     para(""),
-    fn("\u2020 Anaesthetist's fee is an estimate only. The anaesthetist will bill separately and their actual fee may vary depending on the duration and complexity of the procedure."),
-    fn("All fees are in New Zealand Dollars (NZD) and include GST at 15%."),
-    isSE && seHospFee
-      ? fn("Hospital fees are based on the Southern Endoscopy Centre fee-for-service average prices (standard private). Fees shown are averages from a 9-month snapshot and may be higher if additional intervention or time is required.")
-      : setFee
-        ? fn(`Hospital fees are a fixed price under the St George\u2019s Hospital Fixed Price Procedures / Set Fee Schedule effective ${SET_FEE_EFFECTIVE} (self-funding patients only). The fixed price of ${nzd(setFee.price)} covers the hospital stay${setFee.accomNightsIncl > 0 ? ` (including ${setFee.accomNightsIncl} night accommodation)` : " (accommodation excluded and charged separately)"} and all consumables and medical supplies. Accommodation beyond the stated allowance and any return to theatre are charged in addition.`)
-        : fn("Hospital fees are based on the St George\u2019s Hospital Fees Schedule effective 1 April 2026 and are calculated on estimated theatre and recovery times. Actual charges may vary."),
-    fn("This estimate is provided as a guide only and does not constitute a guarantee of cost. Patients are encouraged to contact their insurer prior to admission to confirm cover."),
-    ...(docConsumables.length > 0 ? [fn(
-      "Actual consumable charges are confirmed at time of surgery and may vary."
-    )] : []),
-    ...(setFee
-      ? [fn("Total estimate = surgeon\u2019s fee + anaesthetist\u2019s fee + fixed hospital price. No separate theatre, recovery or consumable charges apply.")]
-      : [fn("Medical supplies, implants, and any additional clinical care are charged separately as incurred.")]),
-    ...(procName.includes("Colonoscopy") || procName.includes("Gastroscopy") ? [
-      para("", { size: 18, after: 0 }),
-      para("Note: Colonoscopy and gastroscopy fees shown are average estimates. The final surgeon fee will vary depending on the specific procedures performed (biopsies, polypectomy, dilatation, etc.). Actual costs may range from $1,049–$1,581 for colonoscopy and $707–$1,448 for gastroscopy.", { size: 16, after: 100, italic: true }),
-    ] : []),
-    para("For queries regarding hospital costs, contact Sarah Jane at St George's Hospital on 03 375 6101", { size: 18, after: 40 }),
-    para("For queries regarding anaesthetist costs, contact Anaesthetic Associates on 03 365 3777", { size: 18, after: 100 }),
+    ...buildFootnotes(fn, para),
   ];
 
   if (notes) {
