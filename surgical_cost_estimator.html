@@ -21457,11 +21457,20 @@ function selectProc2(name) {
   syncConsumablesForBoth();
 }
 
-// A set-fee package covers its own procedure only, so the hospital's charge for
-// anything added has to be obtained from them.
+// True when the primary procedure is priced as a set fee - either a bariatric
+// all-inclusive package or a St George's fixed price. Both cover one named
+// procedure only, so anything added has to be re-quoted by the hospital.
+function hasAnySetFee(name) {
+  const p = PROCEDURES[name];
+  if (!p) return false;
+  if (p.set_fee !== undefined) return true;
+  const ins  = document.getElementById("insurance").value;
+  const hKey = ins === "other" ? "sx_ap" : ins;
+  return !!getSetFee(name, hKey, getHospitalName());
+}
+
 function isPackageWithExtra() {
-  const p1 = PROCEDURES[procInput.value.trim()];
-  return !!(p1 && p1.set_fee !== undefined && selectedProc2);
+  return !!(selectedProc2 && hasAnySetFee(procInput.value.trim()));
 }
 
 function syncAddHospRow() {
@@ -21583,6 +21592,13 @@ document.addEventListener("click", e => {
   document.getElementById(id).addEventListener("change", calculate);
   document.getElementById(id).addEventListener("input", calculate);
 });
+
+// Whether a St George's fixed price applies depends on the insurer and hospital,
+// so the extra-cost fields are re-checked when either changes.
+["insurance","hospital"].forEach(id =>
+  document.getElementById(id).addEventListener("change", () => {
+    syncAddHospRow(); calculate();
+  }));
 
 // Anaesthetist tick box (endoscopy) - adds or removes the anaesthetist fee.
 document.getElementById("anaesRequired").addEventListener("change", applyAnaesRequired);
@@ -21820,7 +21836,20 @@ function calculate() {
     ? SE_HOSP_FEES[procName] : null;
 
   // ── St George's fixed price (inguinal hernia, self-funding patients) ──
-  const setFee = isCombined ? null : getSetFee(procName, hospKey, hospName);
+  // The fixed price covers one named procedure. Adding anything to it means the
+  // hospital and the anaesthetist must both re-quote, so their charges are
+  // entered once known rather than calculated.
+  const setFeeBase = getSetFee(procName, hospKey, hospName);
+  const extrasMode = isCombined && !!setFeeBase;
+  const setFee     = isCombined ? null : setFeeBase;
+
+  const addHospRaw2  = document.getElementById("addHospCost").value.trim();
+  const addAnaesRaw2 = document.getElementById("addAnaesCost").value.trim();
+  const exHosp   = addHospRaw2  === "" ? null : (parseFloat(addHospRaw2)  || 0);
+  const exAnaes  = addAnaesRaw2 === "" ? null : (parseFloat(addAnaesRaw2) || 0);
+  const exHospPending  = extrasMode && exHosp  === null;
+  const exAnaesPending = extrasMode && exAnaes === null;
+  const exAnyPending   = exHospPending || exAnaesPending;
 
   const hasFixedHosp = !isCombined && proc && proc.hosp_fixed !== undefined;
   const tFee  = seHospFee !== null ? seHospFee
@@ -21832,10 +21861,13 @@ function calculate() {
   const aFee  = setFee ? setFeeAccommodation(setFee, nights, roomType)
               : (proc && proc.accom_incl) ? 0
               : accommodationFee(nights, roomType);
-  const hospTotal = tFee + rFee + aFee;
+  // In re-quote mode the hospital's price (theatre, recovery, accommodation and
+  // supplies) comes from the hospital, so nothing is calculated here.
+  const hospTotal = extrasMode ? (exHosp || 0) : tFee + rFee + aFee;
   // Consumables are covered by the fixed price and are excluded from the total.
-  const consTotal   = setFee ? 0 : consumables.reduce((s, c) => s + c.chargedCost, 0);
-  const grandTotal  = (surgeonFee !== null ? surgeonFee : 0) + anaestheticFee + hospTotal + consTotal;
+  const consTotal   = (setFee || extrasMode) ? 0 : consumables.reduce((s, c) => s + c.chargedCost, 0);
+  const anaesForTotal = extrasMode ? (exAnaes || 0) : anaestheticFee;
+  const grandTotal  = (surgeonFee !== null ? surgeonFee : 0) + anaesForTotal + hospTotal + consTotal;
 
   // Consumables UI: disabled and ignored when a fixed price applies
   const consSection = document.getElementById("consSection");
@@ -21864,7 +21896,19 @@ function calculate() {
 
   // Warn if surgeon fee not listed for this insurer
   const warnEl = document.getElementById("warnBanner");
-  if (proc && surgeonFee === null) {
+  if (exAnyPending) {
+    const hospContact2 = hospName === SET_FEE_HOSPITAL
+      ? "Sarah Jane at St George\u2019s Hospital on 03 375 6101"
+      : hospName;
+    const calls2 = [];
+    if (exHospPending)  calls2.push(hospContact2);
+    if (exAnaesPending) calls2.push("Anaesthetic Associates on 03 365 3777");
+    warnEl.textContent = "\u26a0 The fixed price covers " + procName
+      + " only. Before sending this estimate, contact " + calls2.join(" and ")
+      + " for the cost of also doing " + proc2Name
+      + ", then enter the amount(s) above. Until then the total is shown as a \u201cfrom\u201d figure.";
+    warnEl.classList.add("show");
+  } else if (proc && surgeonFee === null) {
     warnEl.textContent = "⚠ Surgeon fee not listed for this insurance type — document will note this.";
     warnEl.classList.add("show");
   } else if (surgeonFeeFallback) {
@@ -21881,6 +21925,10 @@ function calculate() {
     : sedationOnQuote ? nzd(consumables.filter(c => /IV Sedation/i.test(c.name)).reduce((t,c)=>t+c.chargedCost,0))
     : (isEndoscopy ? "Not required" : "N/A (local)");
   document.getElementById("r_anaes").textContent    = anaesDisplay;
+  if (extrasMode) {
+    document.getElementById("r_anaes").textContent =
+      exAnaesPending ? "To be confirmed" : nzd(exAnaes);
+  }
   const isFixed = seHospFee !== null || setFee || hasFixedHosp;
   const thLbl = document.getElementById("r_theatre_lbl");
   if (thLbl) thLbl.textContent = setFee ? "Hospital Fixed Price"
@@ -21892,8 +21940,18 @@ function calculate() {
   document.getElementById("r_accom").textContent    = setFee
       ? setFeeAccomLabel(setFee, nights, roomType, aFee)
       : (proc && proc.accom_incl) ? "Included" : nzd(aFee);
-  document.getElementById("r_hosp").textContent     = nzd(hospTotal);
-  document.getElementById("r_total").textContent    = nzd(grandTotal);
+  if (extrasMode) {
+    if (thLbl) thLbl.textContent = "Hospital";
+    document.getElementById("r_theatre").textContent  = "To be confirmed";
+    document.getElementById("r_recovery").textContent = "\u2014";
+    document.getElementById("r_accom").textContent    = "\u2014";
+    document.getElementById("r_hosp").textContent =
+      exHospPending ? "To be confirmed" : nzd(exHosp);
+  } else {
+    document.getElementById("r_hosp").textContent   = nzd(hospTotal);
+  }
+  document.getElementById("r_total").textContent    =
+    (exAnyPending ? "From " : "") + nzd(grandTotal);
 
   const consRow = document.getElementById("r_cons_row");
   if (setFee) {
@@ -21928,7 +21986,8 @@ function calculate() {
   lastCalc = { procName, insKey, stay, tMin, rMin, nights, roomType,
     surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
     isSE, seHospFee, setFee, isOtherIns, surgeonFeeFallback,
-    proc2Name, isCombined };
+    proc2Name, isCombined,
+    extrasMode, exHosp, exAnaes, exHospPending, exAnaesPending, exAnyPending };
 }
 
 function clearForm() {
@@ -22027,7 +22086,8 @@ async function generateDoc() {
 
   const { surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
           tMin, rMin, stay, procName, isSE, seHospFee, setFee, nights, roomType,
-          isOtherIns, surgeonFeeFallback, proc2Name, isCombined } = lastCalc;
+          isOtherIns, surgeonFeeFallback, proc2Name, isCombined,
+          extrasMode, exHosp, exAnaes, exHospPending, exAnaesPending, exAnyPending } = lastCalc;
   // Consumables are covered by a fixed price and are not itemised in the document
   const docConsumables = setFee ? [] : consumables;
   // The patient quote is deliberately not itemised. IV sedation is an
@@ -22326,11 +22386,13 @@ async function generateDoc() {
       ]}),
       costRow("Surgeon's Fee", surgeonStr, false, false),
       costRow("Anaesthetist's Fee \u2020",
-        anaesAllIn > 0 ? nzd(anaesAllIn)
+        extrasMode ? (exAnaesPending ? "To be confirmed" : nzd(exAnaes))
+        : anaesAllIn > 0 ? nzd(anaesAllIn)
         : (/Colonoscopy|Gastroscopy|Sigmoidoscopy/.test(procName) ? "Not required" : "N/A (local anaesthetic)"), false, false),
       costRow("Hospital Fee \u2013 inclusive of theatre, recovery, accommodation and all medical supplies",
-        asRange ? rng(hospLo, hospHi) : nzd(hospitalAllIn), false, false),
-      costRow("TOTAL ESTIMATE",
+        extrasMode ? (exHospPending ? "To be confirmed" : nzd(exHosp))
+        : asRange ? rng(hospLo, hospHi) : nzd(hospitalAllIn), false, false),
+      costRow(exAnyPending ? "TOTAL ESTIMATE \u2013 FROM" : "TOTAL ESTIMATE",
         asRange ? rng(totalLo, totalHi) : nzd(grandTotal), true, true),
     ]
   });
@@ -22413,7 +22475,11 @@ async function generateDoc() {
       surgeonNote = "The fee shown is for the procedure named above.";
     }
 
-    const anaesNote = anaestheticFee > 0
+    const anaesNote = extrasMode
+      ? (exAnaesPending
+          ? "To be confirmed. The anaesthetist sets their own fee for the additional procedure and will bill separately. We will confirm this with you before your admission."
+          : "An estimate only. The anaesthetist bills separately, and their actual fee may vary.")
+      : anaestheticFee > 0
       ? "An estimate only. The anaesthetist bills separately, and their actual fee may vary with the duration and complexity of the procedure."
       : hasSedation
         ? "An estimate only. The amount shown covers attendance by an anaesthetist. They bill separately and their actual fee may vary."
@@ -22424,7 +22490,11 @@ async function generateDoc() {
     let hospNote;
     // Lead with the same "estimate only / bills separately" framing used for
     // the anaesthetist, then state what the figure is based on.
-    if (usesSEPrices) {
+    if (extrasMode) {
+      hospNote = exHospPending
+        ? "To be confirmed. The hospital\u2019s fixed price covers " + procName + " only, so they will quote separately for the additional procedure. We will confirm this with you before your admission."
+        : "The amount shown is the hospital\u2019s own quote covering both procedures, including theatre, recovery, accommodation and all medical supplies.";
+    } else if (usesSEPrices) {
       hospNote = "An estimate only. The centre bills separately. Based on Southern Endoscopy Centre fee-for-service average prices (standard private). Equipment used during the procedure is charged to the patient, so the final amount will be higher if more is found and treated than anticipated.";
     } else if (setFee) {
       hospNote = `An estimate only. The hospital bills separately. Based on a fixed price of ${nzd(setFee.price)} under the St George\u2019s Set Fee Schedule effective ${SET_FEE_EFFECTIVE}${setFee.allInsurers ? "" : " (self-funding patients only)"}, covering the hospital stay${setFee.accomNightsIncl > 0 ? ` including ${setFee.accomNightsIncl} night accommodation` : " with accommodation charged separately"} and all medical supplies.`;
@@ -22444,7 +22514,13 @@ async function generateDoc() {
 
     // ══════ 2. Why the final invoice may differ ══════
     const changes = [];
-    if (usesSEPrices)        changes.push("Hospital fees are averages from a nine-month snapshot. Biopsy, polypectomy, dilatation or similar treatment at the time of the procedure uses additional equipment, which is charged to the patient.");
+    if (extrasMode && exAnyPending) {
+      const outstanding = exHospPending && exAnaesPending ? "hospital and anaesthetist charges"
+                        : exHospPending ? "hospital charge" : "anaesthetist\u2019s fee";
+      changes.push("The " + outstanding + " marked \u201cto be confirmed\u201d are not included in the total shown, so the final cost will be higher.");
+    }
+    if (extrasMode) { /* the time-based hospital wording does not apply */ }
+    else if (usesSEPrices)        changes.push("Hospital fees are averages from a nine-month snapshot. Biopsy, polypectomy, dilatation or similar treatment at the time of the procedure uses additional equipment, which is charged to the patient.");
     else if (setFee)         changes.push("Accommodation beyond the stated allowance is charged in addition.");
     else if (hasHospFixed)   changes.push("Biopsy, polypectomy, dilatation or similar treatment at the time of the procedure uses additional equipment, which is charged to the patient.");
     else                     changes.push("Charges will increase if the procedure takes longer than the estimated theatre and recovery times.");
