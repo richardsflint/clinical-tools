@@ -21463,10 +21463,15 @@ function selectProc2(name) {
 function hasAnySetFee(name) {
   const p = PROCEDURES[name];
   if (!p) return false;
-  if (p.set_fee !== undefined) return true;
+  if (p.set_fee !== undefined)    return true;   // bariatric package
+  if (p.hosp_fixed !== undefined) return true;   // fixed endoscopy charge (any payer)
   const ins  = document.getElementById("insurance").value;
   const hKey = ins === "other" ? "sx_ap" : ins;
-  return !!getSetFee(name, hKey, getHospitalName());
+  const hosp = getHospitalName();
+  if (getSetFee(name, hKey, hosp)) return true;  // St George's set fee schedule
+  if (hosp === "Southern Endoscopy Centre" && hKey === "standard"
+      && SE_HOSP_FEES[name] !== undefined) return true;
+  return false;
 }
 
 function isPackageWithExtra() {
@@ -21840,7 +21845,15 @@ function calculate() {
   // hospital and the anaesthetist must both re-quote, so their charges are
   // entered once known rather than calculated.
   const setFeeBase = getSetFee(procName, hospKey, hospName);
-  const extrasMode = isCombined && !!setFeeBase;
+  // Every kind of fixed hospital price covers one named procedure: the St
+  // George's set fee schedule, the Southern Endoscopy averages, and the fixed
+  // endoscopy charges (which apply to every payer). Any of them means the
+  // hospital has to re-quote once a second procedure is added.
+  const seBase     = (isSE && hospKey === "standard" && SE_HOSP_FEES[procName] !== undefined)
+                     ? SE_HOSP_FEES[procName] : null;
+  const fixedBase  = !!(proc && proc.hosp_fixed !== undefined);
+  const anyFixed   = !!setFeeBase || seBase !== null || fixedBase;
+  const extrasMode = isCombined && anyFixed;
   const setFee     = isCombined ? null : setFeeBase;
 
   const addHospRaw2  = document.getElementById("addHospCost").value.trim();
@@ -21894,8 +21907,15 @@ function calculate() {
     }
   }
 
-  // Warn if surgeon fee not listed for this insurer
+  // Warnings for whoever is preparing the estimate. More than one can apply, so
+  // they are collected and shown together.
   const warnEl = document.getElementById("warnBanner");
+  const warnings = [];
+
+  if (isCombined && insKey === "sx_ap") {
+    warnings.push("\u26a0 Southern Cross Affiliated Provider does not cover combined procedures \u2014 this estimate may not be accepted. Consider quoting the procedures separately, or selecting another insurance type.");
+  }
+
   if (exAnyPending) {
     const hospContact2 = hospName === SET_FEE_HOSPITAL
       ? "Sarah Jane at St George\u2019s Hospital on 03 375 6101"
@@ -21903,16 +21923,20 @@ function calculate() {
     const calls2 = [];
     if (exHospPending)  calls2.push(hospContact2);
     if (exAnaesPending) calls2.push("Anaesthetic Associates on 03 365 3777");
-    warnEl.textContent = "\u26a0 The fixed price covers " + procName
+    warnings.push("\u26a0 The fixed hospital price covers " + procName
       + " only. Before sending this estimate, contact " + calls2.join(" and ")
       + " for the cost of also doing " + proc2Name
-      + ", then enter the amount(s) above. Until then the total is shown as a \u201cfrom\u201d figure.";
-    warnEl.classList.add("show");
-  } else if (proc && surgeonFee === null) {
-    warnEl.textContent = "⚠ Surgeon fee not listed for this insurance type — document will note this.";
-    warnEl.classList.add("show");
+      + ", then enter the amount(s) above. Until then the total is shown as a \u201cfrom\u201d figure.");
+  }
+
+  if (proc && surgeonFee === null) {
+    warnings.push("\u26a0 Surgeon fee not listed for this insurance type \u2014 document will note this.");
   } else if (surgeonFeeFallback) {
-    warnEl.textContent = "⚠ No Standard Private surgeon fee listed for this procedure — the Southern Cross Affiliated Provider fee has been used instead.";
+    warnings.push("\u26a0 No Standard Private surgeon fee listed for this procedure \u2014 the Southern Cross Affiliated Provider fee has been used instead.");
+  }
+
+  if (warnings.length) {
+    warnEl.innerHTML = warnings.map(escHtml).join("<br><br>");
     warnEl.classList.add("show");
   } else {
     warnEl.classList.remove("show");
