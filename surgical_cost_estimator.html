@@ -21765,9 +21765,18 @@ function calculate() {
     if (rcRow) rcRow.style.display = "none";
     const warnEl = document.getElementById("warnBanner");
     if (anyPending) {
-      const who = hospPending && anaesPending ? "the hospital and the anaesthetist"
-                : hospPending ? "the hospital" : "the anaesthetist";
-      warnEl.textContent = "\u26a0 Ask " + who + " what they will charge for the second procedure, then enter it above. Until then the estimate shows a \u201cfrom\u201d total.";
+      // On-screen prompt for whoever is preparing the estimate. This is a working
+      // note only - it is never written into the patient's document.
+      const hName = getHospitalName();
+      const hospContact = hName === SET_FEE_HOSPITAL
+        ? "Sarah Jane at St George\u2019s Hospital on 03 375 6101"
+        : hName;
+      const calls = [];
+      if (hospPending)  calls.push(hospContact);
+      if (anaesPending) calls.push("Anaesthetic Associates on 03 365 3777");
+      warnEl.textContent = "\u26a0 Before sending this estimate, contact " + calls.join(" and ")
+        + " for the cost of adding " + proc2Name
+        + ", then enter the amount(s) above. Until then the total is shown as a \u201cfrom\u201d figure.";
       warnEl.classList.add("show");
     } else {
       warnEl.classList.remove("show");
