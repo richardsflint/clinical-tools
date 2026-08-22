@@ -20503,6 +20503,10 @@ var __async = (__this, __arguments, generator) => {
         <label style="padding-top:2px;">Extra costs</label>
         <div style="flex:1;">
           <div style="display:flex; gap:8px;">
+            <div style="flex:1;" id="addSurgeonWrap">
+              <input type="number" id="addSurgeonCost" min="0" step="10" placeholder="Surgeon">
+              <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">Surgeon</div>
+            </div>
             <div style="flex:1;">
               <input type="number" id="addHospCost" min="0" step="10" placeholder="Hospital">
               <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">Hospital</div>
@@ -20513,9 +20517,10 @@ var __async = (__this, __arguments, generator) => {
             </div>
           </div>
           <div style="font-size:11px; color:var(--muted); margin-top:6px;">
-            The package price covers the primary procedure only. Ask the hospital and the
-            anaesthetist what they will charge for the second procedure and enter the amounts
-            here. Anything left blank is shown on the estimate as still to be confirmed.
+            The package price covers the primary procedure only. For a bariatric package, the
+            surgeon's fee for the second procedure also has to be negotiated with St George's,
+            the same as the hospital's and anaesthetist's charges. Enter the amounts once known
+            here – anything left blank is shown on the estimate as still to be confirmed.
           </div>
         </div>
       </div>
@@ -21482,16 +21487,34 @@ function isPackageWithExtra() {
   return hasAnySetFee(procInput.value.trim()) || hasAnySetFee(selectedProc2);
 }
 
+// True only for a bariatric all-inclusive package with a second procedure -
+// the surgeon's fee for the extra procedure also has to be negotiated with
+// St George's, so it gets its own to-be-confirmed field.
+function isBariatricWithExtra() {
+  if (!selectedProc2) return false;
+  const p = PROCEDURES[procInput.value.trim()];
+  return !!(p && p.set_fee !== undefined);
+}
+
 function syncAddHospRow() {
   const row = document.getElementById("addHospRow");
   if (!row) return;
   const show = isPackageWithExtra();
   row.style.display = show ? "" : "none";
   if (!show) {
-    ["addHospCost","addAnaesCost"].forEach(id => {
+    ["addSurgeonCost","addHospCost","addAnaesCost"].forEach(id => {
       const f = document.getElementById(id);
       if (f) f.value = "";
     });
+  }
+  const surgeonWrap = document.getElementById("addSurgeonWrap");
+  if (surgeonWrap) {
+    const showSurgeon = show && isBariatricWithExtra();
+    surgeonWrap.style.display = showSurgeon ? "" : "none";
+    if (!showSurgeon) {
+      const f = document.getElementById("addSurgeonCost");
+      if (f) f.value = "";
+    }
   }
 }
 
@@ -21612,8 +21635,8 @@ document.addEventListener("click", e => {
 // Anaesthetist tick box (endoscopy) - adds or removes the anaesthetist fee.
 document.getElementById("anaesRequired").addEventListener("change", applyAnaesRequired);
 
-// Extra hospital charge for a second procedure on a package.
-["addHospCost","addAnaesCost"].forEach(id =>
+// Extra hospital / anaesthetist / surgeon charge for a second procedure on a package.
+["addSurgeonCost","addHospCost","addAnaesCost"].forEach(id =>
   ["change","input"].forEach(ev =>
     document.getElementById(id).addEventListener(ev, calculate)));
 
@@ -21758,25 +21781,25 @@ function calculate() {
   if (proc && proc.set_fee !== undefined) {
     const setFee = proc.set_fee;
 
-    // A second procedure sits outside the package. The surgeon's fee is charged
-    // at the usual 60%, the anaesthetist for the extra theatre time, and the
-    // hospital's own charge has to be obtained from them.
+    // A second procedure sits outside the package. The surgeon's fee for it also
+    // has to be negotiated with St George's rather than calculated here, the
+    // same as the hospital's own charge and the anaesthetist's fee.
     const extraProc  = proc2 || null;
-    const extraFeeIn = extraProc ? feeFor(extraProc).fee : null;
-    const addSurgeon = extraFeeIn !== null ? Math.round(extraFeeIn * SECOND_PROC_RATE) : 0;
-    // The hospital and the anaesthetist each set their own charge for anything
-    // added to a package, so both are entered once known rather than estimated.
-    const addHospRaw  = document.getElementById("addHospCost").value.trim();
-    const addAnaesRaw = document.getElementById("addAnaesCost").value.trim();
-    const addHosp     = addHospRaw  === "" ? null : (parseFloat(addHospRaw)  || 0);
-    const addAnaes    = addAnaesRaw === "" ? null : (parseFloat(addAnaesRaw) || 0);
-    const hospPending  = !!extraProc && addHosp  === null;
-    const anaesPending = !!extraProc && addAnaes === null;
-    const anyPending   = hospPending || anaesPending;
-    const pkgTotal   = setFee + addSurgeon + (addAnaes || 0) + (addHosp || 0);
+    const addSurgeonRaw = document.getElementById("addSurgeonCost").value.trim();
+    const addHospRaw    = document.getElementById("addHospCost").value.trim();
+    const addAnaesRaw   = document.getElementById("addAnaesCost").value.trim();
+    const addSurgeon = addSurgeonRaw === "" ? null : (parseFloat(addSurgeonRaw) || 0);
+    const addHosp    = addHospRaw    === "" ? null : (parseFloat(addHospRaw)    || 0);
+    const addAnaes   = addAnaesRaw   === "" ? null : (parseFloat(addAnaesRaw)   || 0);
+    const surgeonPending = !!extraProc && addSurgeon === null;
+    const hospPending    = !!extraProc && addHosp    === null;
+    const anaesPending   = !!extraProc && addAnaes   === null;
+    const anyPending   = surgeonPending || hospPending || anaesPending;
+    const pkgTotal   = setFee + (addSurgeon || 0) + (addAnaes || 0) + (addHosp || 0);
 
-    document.getElementById("r_surgeon").textContent  = extraProc && addSurgeon
-      ? "Package + " + nzd(addSurgeon) : "All-inclusive";
+    document.getElementById("r_surgeon").textContent  = surgeonPending
+      ? "Package + to be confirmed"
+      : (addSurgeon ? "Package + " + nzd(addSurgeon) : "All-inclusive");
     document.getElementById("r_anaes").textContent    = anaesPending
       ? "Package + to be confirmed"
       : (addAnaes ? "Package + " + nzd(addAnaes) : "All-inclusive");
@@ -21797,7 +21820,7 @@ function calculate() {
         ? "Sarah Jane at St George\u2019s Hospital on 03 375 6101"
         : hName;
       const calls = [];
-      if (hospPending)  calls.push(hospContact);
+      if (surgeonPending || hospPending) calls.push(hospContact);
       if (anaesPending) calls.push("Anaesthetic Associates on 03 365 3777");
       warnEl.textContent = "\u26a0 Before sending this estimate, contact " + calls.join(" and ")
         + " for the cost of adding " + proc2Name
@@ -21816,8 +21839,12 @@ function calculate() {
     if (extraProc) {
       pkgNotes.push("Package covers " + procName + ". " + proc2Name + " is charged in addition.");
       if (anyPending) {
-        const who = hospPending && anaesPending ? "hospital's and anaesthetist's charges are"
-                  : hospPending ? "hospital's charge is" : "anaesthetist's fee is";
+        const parts = [];
+        if (surgeonPending) parts.push("surgeon's fee");
+        if (hospPending)    parts.push("hospital's charge");
+        if (anaesPending)   parts.push("anaesthetist's fee");
+        const who = parts.length === 1 ? parts[0] + " is"
+                  : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1] + " are";
         pkgNotes.push("The " + who + " still to be confirmed and NOT included in the total.");
       }
     } else {
@@ -21832,7 +21859,7 @@ function calculate() {
                  hospTotal: 0, consTotal: 0, grandTotal: pkgTotal,
                  proc2Name, isCombined: false,
                  pkgBase: setFee, addSurgeon, addAnaes, addHosp,
-                 hospPending, anaesPending, anyPending };
+                 surgeonPending, hospPending, anaesPending, anyPending };
     return;
   }
 
@@ -22238,7 +22265,8 @@ async function generateDoc() {
         ...(proc2Name ? [
           feeRow2("Set fee – " + procName +
                   " (surgeon, anaesthetist, hospital and all consumables)", nzd(pkgBase), false),
-          feeRow2("Additional surgeon’s fee – " + proc2Name, nzd(addSurgeon), false),
+          feeRow2("Additional surgeon’s fee – " + proc2Name,
+                  surgeonPending ? "To be confirmed" : nzd(addSurgeon || 0), false),
           feeRow2("Additional anaesthetist’s fee – " + proc2Name,
                   anaesPending ? "To be confirmed" : nzd(addAnaes || 0), false),
           feeRow2("Additional hospital cost – " + proc2Name,
