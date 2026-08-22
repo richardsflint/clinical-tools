@@ -20791,6 +20791,39 @@ function nzd(v) {
   return "$" + Number(v).toLocaleString("en-NZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Whole dollars - used for fee ranges, where cents add nothing.
+function nzd0(v) {
+  return "$" + Math.round(Number(v)).toLocaleString("en-NZ");
+}
+
+// ── Endoscopy fee ranges ────────────────────────────────────────────
+// A colonoscopy or gastroscopy fee depends on what is found and treated.
+// The range is derived from the fee schedule actually being applied, so an
+// Affiliated Provider quote shows AP prices and a private quote shows
+// private prices - they are materially different.
+const ENDO_FAMILIES = [
+  ["Gastroscopy + Colonoscopy", "a gastroscopy and colonoscopy"],
+  ["Colonoscopy",               "a colonoscopy"],
+  ["Gastroscopy",               "a gastroscopy"],
+  ["Flexible Sigmoidoscopy",    "a flexible sigmoidoscopy"]
+];
+
+// Only the base procedures get a range: once an add-on is named the fee is
+// known. `key` is the PROCEDURES field the surgeon's fee was read from.
+function endoscopyRange(name, key) {
+  const fam = ENDO_FAMILIES.find(f => name === f[0]);
+  if (!fam) return null;
+  const prefix = fam[0];
+  const vals = Object.keys(PROCEDURES)
+    .filter(n => n.startsWith(prefix))
+    .filter(n => !(prefix === "Gastroscopy" && n.startsWith("Gastroscopy + Colonoscopy")))
+    .map(n => PROCEDURES[n][key])
+    .filter(v => v !== null && v !== undefined);
+  if (vals.length < 2) return null;
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  return lo === hi ? null : { lo, hi, label: fam[1] };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // LOGOS  (raw base64, no data-URI prefix)
 // ═══════════════════════════════════════════════════════════════════
@@ -21022,7 +21055,7 @@ const PROCEDURES = {
   // polypectomy fee applied. Colonoscopy + Haemorrhoid Band = colonoscopy
   // ($1,049) + band ligation of haemorrhoids add-on ($222).
   // ── COLONOSCOPY ─────────────────────────────────────────────────
-  "Colonoscopy ($1,049–$1,581)":
+  "Colonoscopy":
     {standard:1250,sx_ap:1275,hnz:848,hosp_fixed:2030, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Biopsy / Dilatation":
     {standard:1450,sx_ap:1141,hnz:934,hosp_fixed:2235, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
@@ -21046,7 +21079,7 @@ const PROCEDURES = {
   "Gastroscopy + Colonoscopy + EMR":
     {standard:2500,sx_ap:1977,hnz:1651, anaesthetic:0,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── GASTROSCOPY ─────────────────────────────────────────────────
-  "Gastroscopy ($707–$1,448)":
+  "Gastroscopy":
     {standard:875,sx_ap:707,hnz:574,hosp_fixed:1695, anaesthetic:0,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Biopsy":
     {standard:900,sx_ap:715,hnz:661,hosp_fixed:1900, anaesthetic:0,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
@@ -21955,6 +21988,9 @@ async function generateDoc() {
     const hasSedation  = docConsumables.some(c => /IV Sedation/i.test(c.name));
     const isColon      = /Colonoscopy|Sigmoidoscopy/.test(procName);
     const isGastro     = /Gastroscopy/.test(procName);
+    // Match the range to the schedule the surgeon's fee came from.
+    const feeKey       = isOtherIns ? (surgeonFeeFallback ? "sx_ap" : "standard") : insKey;
+    const endoRange    = surgeonFee === null ? null : endoscopyRange(procName, feeKey);
 
     // ── Layout helpers: the disclaimer is grouped into short titled
     //    sections of bulleted points rather than a run of loose sentences.
@@ -21987,11 +22023,8 @@ async function generateDoc() {
     let surgeonNote = null;
     if (surgeonFee === null) {
       surgeonNote = "No fee is listed for this insurance type, so none is included in the total above. Please contact the rooms for a quote.";
-    } else if (isColon || isGastro) {
-      const ranges = [];
-      if (isColon)  ranges.push("$1,049\u2013$1,581 for colonoscopy");
-      if (isGastro) ranges.push("$707\u2013$1,448 for gastroscopy");
-      surgeonNote = `The fee shown is an average. Depending on what is found and treated (biopsies, polypectomy, dilatation and similar), it may range from ${ranges.join(" and ")}.`;
+    } else if (endoRange) {
+      surgeonNote = `The fee shown is an average for ${endoRange.label}. Depending on what is found and treated (biopsies, polypectomy, dilatation and similar), the final fee may range from ${nzd0(endoRange.lo)} to ${nzd0(endoRange.hi)}.`;
     } else if (isOtherIns) {
       surgeonNote = surgeonFeeFallback
         ? "The fee shown is the Southern Cross Affiliated Provider rate, as no standard private rate is listed for this procedure."
