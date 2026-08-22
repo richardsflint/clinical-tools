@@ -20557,7 +20557,7 @@ var __async = (__this, __arguments, generator) => {
       <div class="form-row">
         <label for="insurance">Insurance Type</label>
         <select id="insurance">
-          <option value="standard">Standard Private</option>
+          <option value="standard">Self-Paying</option>
           <option value="sx_ap">Southern Cross Affiliated Provider (AP)</option>
           <option value="hnz">Health New Zealand (HNZ)</option>
           <option value="other">Other Insurer</option>
@@ -22014,7 +22014,7 @@ function calculate() {
   if (proc && surgeonFee === null) {
     warnings.push("\u26a0 Surgeon fee not listed for this insurance type \u2014 document will note this.");
   } else if (surgeonFeeFallback) {
-    warnings.push("\u26a0 No Standard Private surgeon fee listed for this procedure \u2014 the Southern Cross Affiliated Provider fee has been used instead.");
+    warnings.push("\u26a0 No Self-Paying surgeon fee listed for this procedure \u2014 the Southern Cross Affiliated Provider fee has been used instead.");
   }
 
   if (warnings.length) {
@@ -22192,12 +22192,12 @@ async function generateDoc() {
   const notes    = document.getElementById("notes").value.trim();
   const insKey   = lastCalc.insKey;
   const insLabels = {
-    standard: "Standard Private",
+    standard: "Self-Paying",
     sx_ap:    "Southern Cross Affiliated Provider (AP)",
     hnz:      "Health New Zealand (HNZ)",
     other:    "Other Insurer"
   };
-  const insLabel = insLabels[insKey] || "Standard Private";
+  const insLabel = insLabels[insKey] || "Self-Paying";
 
   const { surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
           tMin, rMin, stay, procName, isSE, seHospFee, setFee, nights, roomType,
