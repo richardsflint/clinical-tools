@@ -21632,6 +21632,17 @@ async function generateDoc() {
           isOtherIns, surgeonFeeFallback } = lastCalc;
   // Consumables are covered by a fixed price and are not itemised in the document
   const docConsumables = setFee ? [] : consumables;
+  // The patient quote is deliberately not itemised. IV sedation is an
+  // anaesthetist charge, so it is reported on the anaesthetist line; every
+  // other consumable is folded into a single inclusive hospital fee.
+  const sedationItems  = docConsumables.filter(c => /IV Sedation/i.test(c.name));
+  const supplyItems    = docConsumables.filter(c => !/IV Sedation/i.test(c.name));
+  const sedationTotal  = sedationItems.reduce((t, c) => t + c.chargedCost, 0);
+  const suppliesTotal  = supplyItems.reduce((t, c) => t + c.chargedCost, 0);
+  const hospitalAllIn  = hospTotal + suppliesTotal;
+  // Anaesthetist line carries the anaesthetist's fee plus any IV sedation, so
+  // that the three lines shown always add up to the total estimate.
+  const anaesAllIn     = anaestheticFee + sedationTotal;
   const hospital = getHospitalName();
 
   const proc = PROCEDURES[procName];
@@ -21856,28 +21867,12 @@ async function generateDoc() {
         makeCell("Description", COL1, NAVY, WHITE, true, false, 20),
         makeCell("Amount (NZD incl. GST)", COL2, NAVY, WHITE, true, true, 20)
       ]}),
-      costRow("Surgeon's Fee",                surgeonStr,             false, false),
-      costRow("Anaesthetist's Fee \u2020",     anaestheticFee > 0 ? nzd(anaestheticFee) : (procName.includes("Colonoscopy") || procName.includes("Gastroscopy") ? "N/A (IV sedation)" : "N/A (local anaesthetic)"), false, false),
-      ...(seHospFee !== null && seHospFee !== undefined
-        ? [costRow("Hospital Fee \u2013 Procedure (Southern Endoscopy Centre, avg.)", nzd(tFee), false, false)]
-        : setFee
-          ? [costRow("Hospital Fee \u2013 Fixed Price Procedure (St George\u2019s Set Fee Schedule)", nzd(tFee), false, false)]
-        : proc && proc.hosp_fixed !== undefined
-          ? [costRow(`Hospital Fee \u2013 Procedure (${fixedFeeLabel(hospital, insKey)})`, nzd(tFee), false, false)]
-          : [
-              costRow(`Hospital Fee \u2013 Theatre (${tMin} min estimated)`, nzd(tFee), false, false),
-              costRow(`Hospital Fee \u2013 Recovery (${rMin} min estimated)`, nzd(rFee), false, false),
-            ]),
-      costRow(`Hospital Fee \u2013 Accommodation (${stay})`,
-        setFee ? setFeeAccomLabel(setFee, nights, roomType, aFee)
-               : (proc && proc.accom_incl) ? "Included" : nzd(aFee),  false, false),
-      ...(setFee ? [costRow("Consumables & Medical Supplies", "Included in fixed price", false, false)] : []),
-      costRow("Hospital Total",               nzd(hospTotal),         true,  false),
-      ...docConsumables.map(c => costRow(
-        `Consumable \u2013 ${c.name}`,
-        nzd(c.chargedCost), false, false)),
-      ...(docConsumables.length > 1 ? [costRow("Consumables Total", nzd(consTotal), true, false)] : []),
-      costRow("TOTAL ESTIMATE",               nzd(grandTotal),        true,  true),
+      costRow("Surgeon's Fee", surgeonStr, false, false),
+      costRow("Anaesthetist's Fee \u2020",
+        anaesAllIn > 0 ? nzd(anaesAllIn) : "N/A (local anaesthetic)", false, false),
+      costRow("Hospital Fee \u2013 inclusive of theatre, recovery, accommodation and all medical supplies",
+        nzd(hospitalAllIn), false, false),
+      costRow("TOTAL ESTIMATE", nzd(grandTotal), true, true),
     ]
   });
 
@@ -21916,7 +21911,7 @@ async function generateDoc() {
     if (anaestheticFee > 0) {
       out.push(fn("\u2020 Anaesthetist\u2019s fee is an estimate only. The anaesthetist will bill separately and their actual fee may vary depending on the duration and complexity of the procedure."));
     } else if (hasSedation) {
-      out.push(fn("\u2020 No separate anaesthetist\u2019s fee is charged for this procedure. IV sedation is itemised above, is billed separately by the anaesthetist, and may vary."));
+      out.push(fn("\u2020 The amount shown is for IV sedation. It is billed separately by the anaesthetist and may vary."));
     } else {
       out.push(fn("\u2020 No anaesthetist\u2019s fee applies \u2013 this procedure is performed under local anaesthetic."));
     }
@@ -21931,19 +21926,19 @@ async function generateDoc() {
     // ── Mixed basis (Other Insurer) ──
     if (isOtherIns) {
       out.push(fn(surgeonFeeFallback
-        ? "The surgeon\u2019s fee shown is the Southern Cross Affiliated Provider rate, as no standard private rate is listed for this procedure. Hospital, anaesthetist and consumable costs are estimated using Southern Cross Affiliated Provider pricing."
-        : "The surgeon\u2019s fee shown is the standard private rate. Hospital, anaesthetist and consumable costs are estimated using Southern Cross Affiliated Provider pricing. Please confirm cover and any shortfall with your insurer prior to admission."));
+        ? "The surgeon\u2019s fee shown is the Southern Cross Affiliated Provider rate, as no standard private rate is listed for this procedure. Hospital and anaesthetist costs are estimated using Southern Cross Affiliated Provider pricing."
+        : "The surgeon\u2019s fee shown is the standard private rate. Hospital and anaesthetist costs are estimated using Southern Cross Affiliated Provider pricing. Please confirm cover and any shortfall with your insurer prior to admission."));
     }
 
     // ── Basis of the hospital fees actually itemised above ──
     if (usesSEPrices) {
-      out.push(fn("Hospital fees are based on the Southern Endoscopy Centre fee-for-service average prices (standard private). Fees shown are averages from a 9-month snapshot and may be higher if additional intervention or time is required."));
+      out.push(fn("The hospital fee is based on Southern Endoscopy Centre fee-for-service average prices (standard private) and includes all medical supplies. Fees shown are averages from a 9-month snapshot and may be higher if additional intervention or time is required."));
     } else if (setFee) {
       out.push(fn(`Hospital fees are a fixed price under the St George\u2019s Hospital Fixed Price Procedures / Set Fee Schedule effective ${SET_FEE_EFFECTIVE}${setFee.allInsurers ? "" : " (self-funding patients only)"}. The fixed price of ${nzd(setFee.price)} covers the hospital stay${setFee.accomNightsIncl > 0 ? ` (including ${setFee.accomNightsIncl} night accommodation)` : " (accommodation excluded and charged separately)"} and all consumables and medical supplies. Accommodation beyond the stated allowance and any return to theatre are charged in addition.`));
     } else if (hasHospFixed) {
-      out.push(fn(`The hospital fee for this procedure is a fixed price of ${nzd(tFee)} (${fixedFeeLabel(hospital, insKey)}) covering theatre and recovery. Accommodation is charged separately as shown above. The fixed price may not apply if additional intervention or time is required.`));
+      out.push(fn(`The hospital fee is based on a fixed price of ${nzd(tFee)} (${fixedFeeLabel(hospital, insKey)}) covering theatre and recovery, with accommodation and medical supplies included in the amount shown. The fixed price may not apply if additional intervention or time is required.`));
     } else {
-      out.push(fn(`Hospital fees are based on the ${isStGeorges ? "St George\u2019s Hospital Fees Schedule effective 1 April 2026" : hospital + " fee schedule"} and are calculated on the estimated theatre (${tMin} min) and recovery (${rMin} min) times shown above. Actual charges will vary if the procedure takes longer than estimated.`));
+      out.push(fn(`The hospital fee is based on the ${isStGeorges ? "St George\u2019s Hospital Fees Schedule effective 1 April 2026" : hospital + " fee schedule"} and covers an estimated ${tMin} minutes in theatre and ${rMin} minutes in recovery, together with accommodation (${stay}) and all medical supplies. Actual charges will vary if the procedure takes longer than estimated.`));
     }
 
     out.push(fn("This estimate is provided as a guide only and does not constitute a guarantee of cost. Patients are encouraged to contact their insurer prior to admission to confirm cover."));
@@ -21957,10 +21952,10 @@ async function generateDoc() {
       if (aFee > 0)            totalParts.push("additional accommodation");
       out.push(fn(`Total estimate = ${totalParts.join(" + ")}. No separate theatre, recovery or consumable charges apply.`));
     } else {
-      if (docConsumables.length > 0) {
-        out.push(fn("Actual consumable charges are confirmed at time of surgery and may vary."));
+      if (supplyItems.length > 0) {
+        out.push(fn("The hospital fee includes an allowance for the medical supplies expected for this procedure. Actual supply charges are confirmed at the time of surgery and may vary."));
       }
-      out.push(fn("Medical supplies, implants, and any additional clinical care are charged separately as incurred."));
+      out.push(fn("Any additional clinical care, implants or supplies beyond those anticipated are charged separately as incurred."));
     }
 
     // ── Endoscopy fee ranges: only the range(s) that apply ──
