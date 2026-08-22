@@ -21475,7 +21475,10 @@ function hasAnySetFee(name) {
 }
 
 function isPackageWithExtra() {
-  return !!(selectedProc2 && hasAnySetFee(procInput.value.trim()));
+  if (!selectedProc2) return false;
+  // Southern Cross AP is priced ad hoc by the facility when anything is added.
+  if (document.getElementById("insurance").value === "sx_ap") return true;
+  return hasAnySetFee(procInput.value.trim());
 }
 
 function syncAddHospRow() {
@@ -21853,7 +21856,10 @@ function calculate() {
                      ? SE_HOSP_FEES[procName] : null;
   const fixedBase  = !!(proc && proc.hosp_fixed !== undefined);
   const anyFixed   = !!setFeeBase || seBase !== null || fixedBase;
-  const extrasMode = isCombined && anyFixed;
+  // Southern Cross AP is treated the same way: the facility holds the AP
+  // contract and prices anything added to it ad hoc, so their charge and the
+  // anaesthetist's are obtained rather than calculated.
+  const extrasMode = isCombined && (anyFixed || insKey === "sx_ap");
   const setFee     = isCombined ? null : setFeeBase;
 
   const addHospRaw2  = document.getElementById("addHospCost").value.trim();
@@ -21912,19 +21918,26 @@ function calculate() {
   const warnEl = document.getElementById("warnBanner");
   const warnings = [];
 
-  if (isCombined && insKey === "sx_ap") {
-    warnings.push("\u26a0 Southern Cross Affiliated Provider does not cover combined procedures \u2014 this estimate may not be accepted. Consider quoting the procedures separately, or selecting another insurance type.");
+  if (insKey === "sx_ap") {
+    warnings.push(isCombined
+      ? "\u26a0 Southern Cross Affiliated Provider: the AP contract does not allow a second procedure to be added unless it has been specifically cleared with Southern Cross before surgery. Obtain approval first, or quote the procedures separately."
+      : "\u26a0 Southern Cross Affiliated Provider: the AP contract does not allow any additional procedure to be added unless it has been specifically cleared with Southern Cross before surgery.");
   }
 
   if (exAnyPending) {
-    const hospContact2 = hospName === SET_FEE_HOSPITAL
-      ? "Sarah Jane at St George\u2019s Hospital on 03 375 6101"
-      : hospName;
+    const FACILITY_CONTACTS = {
+      [SET_FEE_HOSPITAL]:          "Sarah Jane at St George\u2019s Hospital on 03 375 6101",
+      "Southern Endoscopy Centre": "Southern Endoscopy Centre on 03 968 9800"
+    };
+    const hospContact2 = FACILITY_CONTACTS[hospName] || hospName;
     const calls2 = [];
     if (exHospPending)  calls2.push(hospContact2);
     if (exAnaesPending) calls2.push("Anaesthetic Associates on 03 365 3777");
-    warnings.push("\u26a0 The fixed hospital price covers " + procName
-      + " only. Before sending this estimate, contact " + calls2.join(" and ")
+    const reason = insKey === "sx_ap"
+      ? "The facility holds the Southern Cross AP contract and prices anything added to it ad hoc."
+      : "The fixed hospital price covers " + procName + " only.";
+    warnings.push("\u26a0 " + reason
+      + " Before sending this estimate, contact " + calls2.join(" and ")
       + " for the cost of also doing " + proc2Name
       + ", then enter the amount(s) above. Until then the total is shown as a \u201cfrom\u201d figure.");
   }
@@ -22515,8 +22528,11 @@ async function generateDoc() {
     // Lead with the same "estimate only / bills separately" framing used for
     // the anaesthetist, then state what the figure is based on.
     if (extrasMode) {
+      const apBasis = insKey === "sx_ap";
       hospNote = exHospPending
-        ? "To be confirmed. The hospital\u2019s fixed price covers " + procName + " only, so they will quote separately for the additional procedure. We will confirm this with you before your admission."
+        ? (apBasis
+            ? "To be confirmed. " + hospital + " holds the Southern Cross Affiliated Provider agreement and will price the additional procedure separately. We will confirm this with you before your admission."
+            : "To be confirmed. The hospital\u2019s fixed price covers " + procName + " only, so they will quote separately for the additional procedure. We will confirm this with you before your admission.")
         : "The amount shown is the hospital\u2019s own quote covering both procedures, including theatre, recovery, accommodation and all medical supplies.";
     } else if (usesSEPrices) {
       hospNote = "An estimate only. The centre bills separately. Based on Southern Endoscopy Centre fee-for-service average prices (standard private). Equipment used during the procedure is charged to the patient, so the final amount will be higher if more is found and treated than anticipated.";
@@ -22558,9 +22574,11 @@ async function generateDoc() {
     // ══════ 3. Standing caveats ══════
     section("PLEASE NOTE", [
       "This estimate is a guide only and is not a guarantee of cost.",
-      isOtherIns
-        ? "Please confirm cover, and any shortfall, with your insurer before admission."
-        : "Please contact your insurer before admission to confirm cover.",
+      insKey === "sx_ap"
+        ? "This estimate is prepared under the Southern Cross Affiliated Provider agreement, which covers the procedure named above. Any additional procedure must be approved by Southern Cross before surgery or it may not be covered."
+        : isOtherIns
+          ? "Please confirm cover, and any shortfall, with your insurer before admission."
+          : "Please contact your insurer before admission to confirm cover.",
       "All fees are in New Zealand Dollars and include GST at 15%."
     ]);
 
