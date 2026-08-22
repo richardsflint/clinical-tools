@@ -20516,11 +20516,10 @@ var __async = (__this, __arguments, generator) => {
               <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">Anaesthetist</div>
             </div>
           </div>
-          <div style="font-size:11px; color:var(--muted); margin-top:6px;">
-            The package price covers the primary procedure only. For a bariatric package, the
-            surgeon's fee for the second procedure also has to be negotiated with St George's,
-            the same as the hospital's and anaesthetist's charges. Enter the amounts once known
-            here – anything left blank is shown on the estimate as still to be confirmed.
+          <div style="font-size:11px; color:var(--muted); margin-top:6px;" id="addHospNote">
+            The fixed price covers the primary procedure only. Ask the hospital and the
+            anaesthetist what they will charge for the second procedure and enter the amounts
+            here. Anything left blank is shown on the estimate as still to be confirmed.
           </div>
         </div>
       </div>
@@ -21508,13 +21507,19 @@ function syncAddHospRow() {
     });
   }
   const surgeonWrap = document.getElementById("addSurgeonWrap");
+  const showSurgeon = show && isBariatricWithExtra();
   if (surgeonWrap) {
-    const showSurgeon = show && isBariatricWithExtra();
     surgeonWrap.style.display = showSurgeon ? "" : "none";
     if (!showSurgeon) {
       const f = document.getElementById("addSurgeonCost");
       if (f) f.value = "";
     }
+  }
+  const note = document.getElementById("addHospNote");
+  if (note) {
+    note.textContent = showSurgeon
+      ? "The package price covers the primary procedure only. The surgeon's fee for the second procedure also has to be negotiated with St George's, the same as the hospital's and anaesthetist's charges. Enter the amounts once known here \u2013 anything left blank is shown on the estimate as still to be confirmed."
+      : "The fixed price covers the primary procedure only. Ask the hospital and the anaesthetist what they will charge for the second procedure and enter the amounts here. Anything left blank is shown on the estimate as still to be confirmed.";
   }
 }
 
