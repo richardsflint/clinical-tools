@@ -20682,7 +20682,7 @@ var __async = (__this, __arguments, generator) => {
         <span class="amt" id="r_surgeon">—</span>
       </div>
       <div class="cost-line">
-        <span class="lbl">Anaesthetist's Fee †</span>
+        <span class="lbl">Anaesthetist's Fee</span>
         <span class="amt" id="r_anaes">—</span>
       </div>
       <div class="cost-line">
@@ -20714,7 +20714,7 @@ var __async = (__this, __arguments, generator) => {
       <button class="btn-generate-panel" onclick="generateDoc()">⬇ Generate Word Document</button>
 
       <div class="summary-note" id="summaryNote">
-        † Anaesthetist bills separately. Estimate only – actual fee varies by duration and complexity.<br><br>
+        Anaesthetist bills separately. Estimate only – actual fee varies by duration and complexity.<br><br>
         Hospital fees: St George's schedule effective 1 April 2026.<br>
         Inguinal hernia fixed prices: St George's Set Fee Schedule effective 1 August 2026 (self-funding patients).<br>
         <strong>Surgeon fees reviewed: <span id="surgeonFeesReviewedInline">—</span></strong> (Southern Cross AP endoscopy fees per Southern Endoscopy agreement, Feb 2026).<br>
@@ -21858,7 +21858,7 @@ function calculate() {
       (anyPending ? "From " : "") + nzd(pkgTotal);
 
     const pkgNotes = [
-      "\u2020 Anaesthetist's fee is included in the all-inclusive package price.",
+      "Anaesthetist's fee is included in the all-inclusive package price.",
       ""
     ];
     if (extraProc) {
@@ -22075,10 +22075,10 @@ function calculate() {
   const hasHospFixed = hasFixedHosp && !usesSEPrices && !setFee;
   const hasSedation  = !setFee && consumables.some(c => /IV Sedation/i.test(c.name));
   const noteLines = [];
-  if (anaestheticFee > 0)  noteLines.push("\u2020 Anaesthetist bills separately. Estimate only \u2013 actual fee varies by duration and complexity.");
-  else if (hasSedation)    noteLines.push("\u2020 Anaesthetist attending \u2013 bills separately. Estimate only.");
-  else if (isEndoscopy)    noteLines.push("\u2020 No anaesthetist \u2013 sedation is given by the endoscopist. Tick \u201cAnaesthetist required\u201d above if one will attend.");
-  else                     noteLines.push("\u2020 No anaesthetist's fee \u2013 performed under local anaesthetic.");
+  if (anaestheticFee > 0)  noteLines.push("Anaesthetist bills separately. Estimate only \u2013 actual fee varies by duration and complexity.");
+  else if (hasSedation)    noteLines.push("Anaesthetist attending \u2013 bills separately. Estimate only.");
+  else if (isEndoscopy)    noteLines.push("No anaesthetist \u2013 sedation is given by the endoscopist. Tick \u201cAnaesthetist required\u201d above if one will attend.");
+  else                     noteLines.push("No anaesthetist's fee \u2013 performed under local anaesthetic.");
   noteLines.push("");
   if (surgeonFee === null && procName) noteLines.push("Surgeon's fee is not listed for this insurer and is NOT included in the total.");
   if (usesSEPrices)        noteLines.push("Hospital fees: Southern Endoscopy Centre fee-for-service averages (standard private).");
@@ -22235,7 +22235,7 @@ async function generateDoc() {
     const CONTENT_W = 9298; const COL1 = 6900; const COL2 = CONTENT_W - COL1;
     const border = { style: "single", size: 1, color: "CCCCCC" };
     const borders = { top: border, bottom: border, left: border, right: border };
-    const cellPad = { top: 55, bottom: 55, left: 120, right: 120 };
+    const cellPad = { top: 60, bottom: 60, left: 130, right: 130 };
     function makeCell2(text, colW, fill, textColor, bold, rightAlign, fontSize) {
       return new TableCell({
         width: { size: colW, type: WidthType.DXA }, borders,
@@ -22403,6 +22403,9 @@ async function generateDoc() {
   const WHITE   = "FFFFFF";
   const GREY    = "555555";
 
+  // Needed by both the header (logo fallback) and the info table below.
+  const surgeon = document.getElementById("surgeon").value || "Richard Flint";
+
   // Page: A4, 25mm margins → content width = 164mm = 9298 DXA
   const CONTENT_W = 9298;
   const COL1 = 6900;
@@ -22410,7 +22413,7 @@ async function generateDoc() {
 
   const border = { style: "single", size: 1, color: "CCCCCC" };
   const borders = { top: border, bottom: border, left: border, right: border };
-  const cellPad = { top: 55, bottom: 55, left: 120, right: 120 };
+  const cellPad = { top: 60, bottom: 60, left: 130, right: 130 };
 
   function makeCell(text, colW, fill, textColor, bold, rightAlign, fontSize) {
     return new TableCell({
@@ -22491,6 +22494,8 @@ async function generateDoc() {
         ? [procName, "+ " + proc2Name]
         : procName),
       infoCells("Hospital",         hospital),
+      infoCells("Surgeon",          surgeon),
+      infoCells("Insurance Type",   insLabel),
     ]
   });
 
@@ -22504,7 +22509,7 @@ async function generateDoc() {
         makeCell("Amount (NZD incl. GST)", COL2, NAVY, WHITE, true, true, 20)
       ]}),
       costRow("Surgeon's Fee", surgeonStr, false, false),
-      costRow("Anaesthetist's Fee \u2020",
+      costRow("Anaesthetist's Fee",
         extrasMode ? (exAnaesPending ? "To be confirmed" : nzd(exAnaes))
         : anaesAllIn > 0 ? nzd(anaesAllIn)
         : (/Colonoscopy|Gastroscopy|Sigmoidoscopy/.test(procName) ? "Not required" : "N/A (local anaesthetic)"), false, false),
@@ -22529,7 +22534,6 @@ async function generateDoc() {
     logoParaForDoc = new Paragraph({ spacing: { before: 0, after: 80 },
       children: [new docx.ImageRun(docLogoImageRun)] });
   }
-  const surgeon = document.getElementById("surgeon").value || "Richard Flint";
   const credLine = surgeon === "Steven Kelly"
     ? "General & Colorectal Surgery"
     : "General & Bariatric Surgery, Endoscopist";
@@ -22557,16 +22561,17 @@ async function generateDoc() {
     //    sections of bulleted points rather than a run of loose sentences.
     function heading(text) {
       return new Paragraph({
-        spacing: { before: 120, after: 50 },
+        spacing: { before: 140, after: 45 },
+        border: { bottom: { style: "single", size: 4, color: "D6EAF8", space: 3 } },
         children: [new TextRun({ text, size: 18, bold: true, color: NAVY, font: "Arial" })]
       });
     }
     function bullet(text, label) {
-      const runs = [new TextRun({ text: "\u2022  ", size: 17, color: GREY, font: "Arial" })];
-      if (label) runs.push(new TextRun({ text: label + " \u2013 ", size: 17, bold: true, color: GREY, font: "Arial" }));
-      runs.push(new TextRun({ text, size: 17, color: GREY, font: "Arial" }));
+      const runs = [new TextRun({ text: "\u2022  ", size: 18, color: GREY, font: "Arial" })];
+      if (label) runs.push(new TextRun({ text: label + " \u2013 ", size: 18, bold: true, color: GREY, font: "Arial" }));
+      runs.push(new TextRun({ text, size: 18, color: GREY, font: "Arial" }));
       return new Paragraph({
-        spacing: { before: 0, after: 40 },
+        spacing: { before: 0, after: 42 },
         indent: { left: 200, hanging: 200 },
         children: runs
       });
@@ -22633,7 +22638,7 @@ async function generateDoc() {
 
     section("WHAT THIS ESTIMATE COVERS", [
       surgeonNote ? ["Surgeon\u2019s fee", surgeonNote] : null,
-      ["Anaesthetist\u2019s fee \u2020", anaesNote],
+      ["Anaesthetist\u2019s fee", anaesNote],
       ["Hospital fee", hospNote]
     ]);
 
@@ -22673,7 +22678,7 @@ async function generateDoc() {
     // number are bold while the surrounding wording stays plain.
     function contactLine(lead, strong, isLast) {
       return new Paragraph({
-        spacing: { before: 0, after: isLast ? 120 : 60 },
+        spacing: { before: 0, after: isLast ? 80 : 45 },
         indent: { left: 170, right: 170 },
         shading: { type: ShadingType.CLEAR, color: "auto", fill: PALE },
         children: [
@@ -22704,12 +22709,12 @@ async function generateDoc() {
       : "If you would like clarity on the hospital fees, please contact:";
 
     // Spacer, then a shaded heading, then the contact lines.
-    out.push(para("", { size: 18, after: 0 }));
+    out.push(para("", { size: 18, before: 20, after: 0 }));
     out.push(new Paragraph({
-      spacing: { before: 0, after: 60 },
+      spacing: { before: 40, after: 55 },
       indent: { left: 170, right: 170 },
       shading: { type: ShadingType.CLEAR, color: "auto", fill: PALE },
-      border: { top: { style: BorderStyle.SINGLE, size: 6, color: NAVY, space: 6 } },
+      border: { top: { style: BorderStyle.SINGLE, size: 6, color: NAVY, space: 8 } },
       children: [new TextRun({
         text: contactHeading,
         size: 20, bold: true, color: NAVY, font: "Arial"
@@ -22723,21 +22728,12 @@ async function generateDoc() {
     ...(logoParaForDoc ? [logoParaForDoc] : [
       para(surgeon,    { bold: true, size: 32, color: NAVY, after: 40 }),
       para(credLine,   { size: 22, color: GREY, after: 40 }),
-      para(qualLine,   { italic: true, size: 18, color: "999999", after: 120 }),
+      para(qualLine,   { italic: true, size: 18, color: "999999", after: 110 }),
     ]),
     hrPara(),
-    para("SURGICAL COST ESTIMATE", { bold: true, size: 26, color: NAVY, center: true, after: 120 }),
+    para("SURGICAL COST ESTIMATE", { bold: true, size: 26, color: NAVY, center: true, after: 110 }),
     infoTable,
-    new Paragraph({
-      spacing: { before: 120, after: 120 },
-      children: [
-        new TextRun({ text: "Surgeon:  ", bold: true, size: 20, font: "Arial" }),
-        new TextRun({ text: surgeon + "          ", size: 20, font: "Arial" }),
-        new TextRun({ text: "Insurance Type:  ", bold: true, size: 20, font: "Arial" }),
-        new TextRun({ text: insLabel, size: 20, font: "Arial" }),
-      ]
-    }),
-    para("ESTIMATED COST BREAKDOWN", { bold: true, size: 22, color: NAVY, after: 60 }),
+    para("ESTIMATED COST BREAKDOWN", { bold: true, size: 22, color: NAVY, before: 140, after: 60 }),
     costTable,
     ...buildFootnotes(fn, para),
   ];
@@ -22749,12 +22745,12 @@ async function generateDoc() {
   }
 
   children.push(new Paragraph({
-    spacing: { before: 200, after: 0 },
+    spacing: { before: 120, after: 0 },
     children: [new TextRun({ text: `Document prepared: ${estDate}`, size: 16, color: "AAAAAA", font: "Arial" })]
   }));
 
   children.push(new Paragraph({
-    spacing: { before: 20, after: 0 },
+    spacing: { before: 30, after: 0 },
     children: [new TextRun({ text: `Surgeon fees reviewed: ${SURGEON_FEES_REVIEWED}`, size: 16, color: "AAAAAA", font: "Arial" })]
   }));
 
