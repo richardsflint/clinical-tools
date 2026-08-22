@@ -21581,6 +21581,12 @@ proc2Input.addEventListener("input", () => {
   proc2Dropdown.classList.add("open");
   calculate();
 });
+// Same as the primary procedure field: commit an exact typed match on blur
+// so leaving the field always fully applies the selection.
+proc2Input.addEventListener("blur", () => {
+  const typed = proc2Input.value.trim();
+  if (typed && typed !== selectedProc2 && PROCEDURES[typed]) selectProc2(typed);
+});
 proc2Input.addEventListener("keydown", e => {
   if (e.key === "Escape") proc2Dropdown.classList.remove("open");
 });
@@ -21597,6 +21603,13 @@ procInput.addEventListener("input", () => {
   selectedProc = null;
   renderDropdown(procInput.value);
   procDropdown.classList.add("open");
+});
+// Typing the exact name and clicking or tabbing away (rather than choosing
+// from the dropdown) must still fully apply the procedure - otherwise the
+// fee logic and second-procedure options are left showing the old choice.
+procInput.addEventListener("blur", () => {
+  const typed = procInput.value.trim();
+  if (typed && typed !== selectedProc && PROCEDURES[typed]) selectProc(typed);
 });
 procInput.addEventListener("keydown", e => {
   const opts = procDropdown.querySelectorAll(".proc-option");
@@ -21719,6 +21732,7 @@ document.getElementById("consCost").addEventListener("keydown", e => {
 let lastCalc = null;
 
 function calculate() {
+  syncAddHospRow();
   const procName = procInput.value.trim();
   const insKey   = document.getElementById("insurance").value;
   // "Other Insurer": surgeon's fee at Standard Private rates (falling back to
