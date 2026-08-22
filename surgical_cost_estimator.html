@@ -20658,7 +20658,8 @@ var __async = (__this, __arguments, generator) => {
         Hospital fees: St George's schedule effective 1 April 2026.<br>
         Inguinal hernia fixed prices: St George's Set Fee Schedule effective 1 August 2026 (self-funding patients).<br>
         Surgeon fees: pricing schedules reviewed August 2026 (Southern Cross AP endoscopy fees per Southern Endoscopy agreement, Feb 2026).<br>
-        All fees NZD incl. GST 15%.
+        All fees NZD incl. GST 15%.<br>
+        <strong>Pricing last updated: <span id="pricingUpdatedInline">—</span></strong>
       </div>
     </div>
   </div>
@@ -20705,6 +20706,8 @@ function stayLabel(nights, roomType) {
 //   TOTAL = surgeon's fee + anaesthetist's fee + fixed hospital price
 // accomNightsIncl: nights of accommodation included (0 = accommodation excluded)
 // ════════════════════════════════════════════════════════════════
+// Date the fee schedules in this calculator were last revised.
+const PRICING_LAST_UPDATED = "22 August 2026";
 const SET_FEE_HOSPITAL = "St George's Hospital, Christchurch";
 const SET_FEE_EFFECTIVE = "1 August 2026";
 const ST_GEORGE_SET_FEES = {
@@ -20868,83 +20871,83 @@ const SE_HOSP_FEES = {
 const PROCEDURES = {
   // ── HERNIA – INGUINAL ──────────────────────────────────────────
   "Hernia Inguinal Unilateral Laparoscopic Repair":
-    {standard:3000,sx_ap:2845,hnz:2613, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3300,sx_ap:2845,hnz:2613, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // Inguinal hernia repairs attract a St George's FIXED PRICE for self-funding
   // (Standard Private) patients – see ST_GEORGE_SET_FEES above.
   //   Unilateral lap/robotic  $9,000   |  Bilateral lap/robotic  $10,000
   //   Laparoscopic: 1 night accommodation included. Robotic: accommodation excluded.
   "Hernia Inguinal Unilateral Robotic Repair":
-    {standard:3000,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3300,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Unilateral Open Repair":
-    {standard:3500,sx_ap:2529,hnz:2393, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3850,sx_ap:2529,hnz:2393, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Open Repair under Local Anaesthetic":
-    {standard:3500,sx_ap:2488,hnz:null, anaesthetic:0,theatre_min:45,recovery_min:30,typical_stay:"Day Stay – Single Room"},
+    {standard:3850,sx_ap:2488,hnz:null, anaesthetic:0,theatre_min:45,recovery_min:30,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Bilateral Laparoscopic Repair":
-    {standard:4000,sx_ap:3973,hnz:3335, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5000,sx_ap:3973,hnz:3335, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Bilateral Robotic Repair":
-    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Inguinal Bilateral Open Repair":
-    {standard:4500,sx_ap:3936,hnz:null, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:7500,sx_ap:3936,hnz:null, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – FEMORAL ────────────────────────────────────────────
   "Hernia Femoral Unilateral Laparoscopic Repair":
-    {standard:3000,sx_ap:2658,hnz:2462, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3300,sx_ap:2658,hnz:2462, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Femoral Unilateral Robotic Repair":
-    {standard:3000,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3300,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Femoral Unilateral Open Repair":
-    {standard:null,sx_ap:2658,hnz:2291, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3850,sx_ap:2658,hnz:2291, anaesthetic:1300,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Femoral Bilateral Laparoscopic Repair":
-    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5000,sx_ap:null,hnz:null, anaesthetic:1600,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Femoral Bilateral Robotic Repair":
-    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5000,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – UMBILICAL ──────────────────────────────────────────
   "Hernia Umbilical Minor (≤5cm) Open Repair":
-    {standard:3000,sx_ap:2713,hnz:2345, anaesthetic:1400,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:3200,sx_ap:2713,hnz:2345, anaesthetic:1400,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Umbilical Minor Laparoscopic Repair":
-    {standard:5000,sx_ap:3253,hnz:null, anaesthetic:1400,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4400,sx_ap:3253,hnz:null, anaesthetic:1400,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Umbilical Major (>5cm) Open Repair":
-    {standard:3800,sx_ap:3680,hnz:3182, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5800,sx_ap:3680,hnz:3182, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Umbilical Major Laparoscopic Repair":
-    {standard:5000,sx_ap:4695,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:6500,sx_ap:4695,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Umbilical Major Robotic Repair":
-    {standard:5000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:6500,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Laparoscopic Umbilical / Incisional Repair":
-    {standard:5000,sx_ap:null,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:6500,sx_ap:null,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – INCISIONAL ─────────────────────────────────────────
   "Hernia Incisional Repair Minor":
-    {standard:3900,sx_ap:3813,hnz:null, anaesthetic:2000,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5200,sx_ap:3813,hnz:null, anaesthetic:2000,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Incisional Repair Major (>5cm)":
-    {standard:5000,sx_ap:4796,hnz:null, anaesthetic:2000,theatre_min:120,recovery_min:60,typical_stay:"Overnight – Single Room"},
+    {standard:6600,sx_ap:4796,hnz:null, anaesthetic:2000,theatre_min:120,recovery_min:60,typical_stay:"Overnight – Single Room"},
   "Hernia Incisional Robotic Repair":
-    {standard:5000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:60,typical_stay:"Overnight – Single Room"},
+    {standard:6500,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:60,typical_stay:"Overnight – Single Room"},
   // ── HERNIA – EPIGASTRIC ─────────────────────────────────────────
   "Hernia Epigastric Open Repair":
-    {standard:3400,sx_ap:3380,hnz:2878, anaesthetic:1400,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4600,sx_ap:3380,hnz:2878, anaesthetic:1400,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Epigastric Laparoscopic Repair":
-    {standard:null,sx_ap:4217,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:6500,sx_ap:4217,hnz:null, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Hernia Epigastric Robotic Repair":
-    {standard:4300,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:6500,sx_ap:null,hnz:null, anaesthetic:1800,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── HERNIA – HIATUS / PARAOESOPHAGEAL ──────────────────────────
   "Hernia Hiatus +/- Fundoplication Laparoscopic Repair":
-    {standard:5900,sx_ap:5521,hnz:null, anaesthetic:2000,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:7000,sx_ap:5521,hnz:null, anaesthetic:2000,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Hernia Paraoesophageal Laparoscopic Repair":
     {standard:7000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:150,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Laparotomy + Parastomal Hernia Repair":
     {standard:7500,sx_ap:null,hnz:null, anaesthetic:3000,theatre_min:180,recovery_min:90,typical_stay:"Overnight – Single Room"},
   // ── CHOLECYSTECTOMY ─────────────────────────────────────────────
   "Laparoscopic Cholecystectomy":
-    {standard:4750,sx_ap:4642,hnz:4014, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5100,sx_ap:4642,hnz:4014, anaesthetic:1500,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Laparoscopic Cholecystectomy + Intra-Operative Cholangiogram":
-    {standard:5500,sx_ap:5468,hnz:4543, anaesthetic:1500,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:5750,sx_ap:5468,hnz:4543, anaesthetic:1500,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Laparoscopic Cholecystectomy + IOC + Bile Exploration":
-    {standard:8000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:9000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Laparoscopic Cholecystectomy + Division of Adhesions":
-    {standard:null,sx_ap:6982,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:7600,sx_ap:6982,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Laparoscopic Cholecystectomy + Liver Biopsy":
-    {standard:null,sx_ap:6906,hnz:null, anaesthetic:1800,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:7600,sx_ap:6906,hnz:null, anaesthetic:1800,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Laparoscopic Cholecystectomy + Umbilical Hernia Repair":
-    {standard:null,sx_ap:5781,hnz:null, anaesthetic:1800,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:7000,sx_ap:5781,hnz:null, anaesthetic:1800,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Laparoscopic Cholecystectomy + Inguinal Hernia Repair":
-    {standard:null,sx_ap:5815,hnz:null, anaesthetic:1800,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:7000,sx_ap:5815,hnz:null, anaesthetic:1800,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── BARIATRIC – CHRISTCHURCH WEIGHT LOSS SURGERY ─────────────────
   // All bariatric procedures use an all-inclusive set_fee that covers
   // surgeon, hospital (theatre/recovery/accommodation), anaesthetist,
@@ -20986,29 +20989,29 @@ const PROCEDURES = {
   "Laparoscopic Fundoplication Conversion to Roux-en-Y Gastric Bypass + Hiatal Hernia Repair":
     {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:180,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:34670},
   "Laparoscopic Revision Fundoplication and Hiatal Hernia Repair":
-    {standard:8000,sx_ap:null,hnz:null, anaesthetic:2500,theatre_min:150,recovery_min:60,typical_stay:"Overnight – Single Room"},
+    {standard:9000,sx_ap:null,hnz:null, anaesthetic:2500,theatre_min:150,recovery_min:60,typical_stay:"Overnight – Single Room"},
   "Laparoscopic Revision Fundoplication":
-    {standard:8000,sx_ap:null,hnz:null, anaesthetic:2500,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:9000,sx_ap:null,hnz:null, anaesthetic:2500,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Fundoplication (Southern Cross AP)":
-    {standard:null,sx_ap:5521,hnz:null, anaesthetic:2000,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:7000,sx_ap:5521,hnz:null, anaesthetic:2000,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Diagnostic Laparoscopy":
     {standard:2250,sx_ap:null,hnz:null, anaesthetic:1300,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Laparoscopic Gastric Wedge Resection (GIST)":
-    {standard:5500,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:90,recovery_min:60,typical_stay:"Overnight – Single Room"},
+    {standard:7500,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:90,recovery_min:60,typical_stay:"Overnight – Single Room"},
   "Laparoscopic +/- Open Splenectomy":
-    {standard:6000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:9000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Total Gastrectomy":
     {standard:10500,sx_ap:null,hnz:null, anaesthetic:4200,theatre_min:240,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Oesophagogastrectomy via Laparotomy Thoracotomy":
     {standard:10000,sx_ap:null,hnz:null, anaesthetic:6000,theatre_min:360,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Median Arcuate":
-    {standard:9000,sx_ap:null,hnz:null, anaesthetic:3000,theatre_min:180,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:12000,sx_ap:null,hnz:null, anaesthetic:3000,theatre_min:180,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Lipoma Excision under General Anaesthetic":
-    {standard:1750,sx_ap:null,hnz:null, anaesthetic:800,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:2500,sx_ap:null,hnz:null, anaesthetic:800,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Excision Abdominal Wall / Inguinal Sarcoma":
-    {standard:5500,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:15000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:120,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Excision Retroperitoneal Sarcoma":
-    {standard:7500,sx_ap:null,hnz:null, anaesthetic:4200,theatre_min:240,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:18000,sx_ap:null,hnz:null, anaesthetic:4200,theatre_min:240,recovery_min:90,typical_stay:"Overnight – Single Room"},
   // SXAP endoscopy surgeon fees updated to the Southern Endoscopy Centre
   // Affiliated Provider Agreement (Southern Cross), dated 12 Feb 2026.
   // Notes: no separate SX fee listed for "extended polypectomy" – standard
@@ -21016,65 +21019,65 @@ const PROCEDURES = {
   // ($1,049) + band ligation of haemorrhoids add-on ($222).
   // ── COLONOSCOPY ─────────────────────────────────────────────────
   "Colonoscopy ($1,049–$1,581)":
-    {standard:1275,sx_ap:1275,hnz:848,hosp_fixed:2030, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1250,sx_ap:1275,hnz:848,hosp_fixed:2030, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Biopsy / Dilatation":
-    {standard:1141,sx_ap:1141,hnz:934,hosp_fixed:2235, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1450,sx_ap:1141,hnz:934,hosp_fixed:2235, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Polypectomy":
-    {standard:1304,sx_ap:1304,hnz:1076,hosp_fixed:2655, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1600,sx_ap:1304,hnz:1076,hosp_fixed:2655, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Polypectomy & EMR":
-    {standard:1581,sx_ap:1581,hnz:1249,hosp_fixed:4520, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:2000,sx_ap:1581,hnz:1249,hosp_fixed:4520, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Haemorrhoid Band":
-    {standard:1355,sx_ap:1355,hnz:null,hosp_fixed:2620, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1650,sx_ap:1355,hnz:null,hosp_fixed:2620, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Colonoscopy + Extended Polypectomy":
-    {standard:1304,sx_ap:1304,hnz:1134,hosp_fixed:3895, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1650,sx_ap:1304,hnz:1134,hosp_fixed:3895, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── COMBINED GASTROSCOPY + COLONOSCOPY ─────────────────────────
   "Gastroscopy + Colonoscopy":
-    {standard:1414,sx_ap:1414,hnz:1136,hosp_fixed:2820, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1750,sx_ap:1414,hnz:1136,hosp_fixed:2820, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Colonoscopy + Biopsy":
-    {standard:1461,sx_ap:1461,hnz:1222,hosp_fixed:3025, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1800,sx_ap:1461,hnz:1222,hosp_fixed:3025, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Colonoscopy + Polypectomy":
-    {standard:1597,sx_ap:1597,hnz:1364,hosp_fixed:3445, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:2000,sx_ap:1597,hnz:1364,hosp_fixed:3445, anaesthetic:0,theatre_min:60,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Colonoscopy + Extended Polypectomy":
-    {standard:1597,sx_ap:1597,hnz:1536,hosp_fixed:4685, anaesthetic:0,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:2000,sx_ap:1597,hnz:1536,hosp_fixed:4685, anaesthetic:0,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Colonoscopy + EMR":
-    {standard:null,sx_ap:1977,hnz:1651, anaesthetic:0,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:2500,sx_ap:1977,hnz:1651, anaesthetic:0,theatre_min:75,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── GASTROSCOPY ─────────────────────────────────────────────────
   "Gastroscopy & Orbera Balloon (CWLS)":
     {standard:850,sx_ap:null,hnz:null, anaesthetic:800,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy ($707–$1,448)":
-    {standard:1022,sx_ap:1022,hnz:574,hosp_fixed:1695, anaesthetic:0,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:875,sx_ap:707,hnz:574,hosp_fixed:1695, anaesthetic:0,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Biopsy":
-    {standard:715,sx_ap:715,hnz:661,hosp_fixed:1900, anaesthetic:0,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:900,sx_ap:715,hnz:661,hosp_fixed:1900, anaesthetic:0,theatre_min:20,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Polypectomy":
-    {standard:1355,sx_ap:1355,hnz:null,hosp_fixed:2320, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1100,sx_ap:1355,hnz:null,hosp_fixed:2320, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Oesophageal Dilatation":
-    {standard:955,sx_ap:955,hnz:null,hosp_fixed:2580, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1200,sx_ap:955,hnz:null,hosp_fixed:2580, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + Balloon Dilatation":
-    {standard:953,sx_ap:953,hnz:null,hosp_fixed:2580, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1200,sx_ap:953,hnz:null,hosp_fixed:2580, anaesthetic:0,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Gastroscopy + EMR":
-    {standard:1448,sx_ap:1448,hnz:null,hosp_fixed:3560, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1800,sx_ap:1448,hnz:null,hosp_fixed:3560, anaesthetic:0,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── FLEXIBLE SIGMOIDOSCOPY ──────────────────────────────────────
   "Flexible Sigmoidoscopy":
-    {standard:null,sx_ap:703,hnz:null,hosp_fixed:1625, anaesthetic:800,theatre_min:20,recovery_min:30,typical_stay:"Day Stay – Single Room"},
+    {standard:900,sx_ap:703,hnz:null,hosp_fixed:1625, anaesthetic:800,theatre_min:20,recovery_min:30,typical_stay:"Day Stay – Single Room"},
   "Flexible Sigmoidoscopy + Biopsy":
-    {standard:null,sx_ap:715,hnz:null,hosp_fixed:1830, anaesthetic:800,theatre_min:20,recovery_min:30,typical_stay:"Day Stay – Single Room"},
+    {standard:900,sx_ap:715,hnz:null,hosp_fixed:1830, anaesthetic:800,theatre_min:20,recovery_min:30,typical_stay:"Day Stay – Single Room"},
   "Flexible Sigmoidoscopy + Polypectomy":
-    {standard:null,sx_ap:803,hnz:null,hosp_fixed:2250, anaesthetic:800,theatre_min:30,recovery_min:30,typical_stay:"Day Stay – Single Room"},
+    {standard:1000,sx_ap:803,hnz:null,hosp_fixed:2250, anaesthetic:800,theatre_min:30,recovery_min:30,typical_stay:"Day Stay – Single Room"},
   // ── COLORECTAL ──────────────────────────────────────────────────
   "Laparoscopic Appendicectomy":
-    {standard:3100,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1500,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Common Bile Duct Exploration":
-    {standard:2140,sx_ap:null,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Overnight – Single Room"},
+    {standard:11000,sx_ap:null,hnz:null, anaesthetic:2000,theatre_min:90,recovery_min:60,typical_stay:"Overnight – Single Room"},
   "Closure Ileostomy":
-    {standard:5000,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:90,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:8300,sx_ap:null,hnz:null, anaesthetic:2200,theatre_min:90,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Haemorrhoidectomy":
-    {standard:2750,sx_ap:null,hnz:null, anaesthetic:900,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4500,sx_ap:null,hnz:null, anaesthetic:900,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Removal of Skin Tags +/- Banding of Haemorrhoids":
-    {standard:2250,sx_ap:null,hnz:null, anaesthetic:900,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:1700,sx_ap:null,hnz:null, anaesthetic:900,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Pilonidal Sinus":
-    {standard:1800,sx_ap:null,hnz:null, anaesthetic:1300,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:4000,sx_ap:null,hnz:null, anaesthetic:1300,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Laparoscopic Right Hemicolectomy":
-    {standard:6500,sx_ap:null,hnz:null, anaesthetic:3000,theatre_min:150,recovery_min:90,typical_stay:"Overnight – Single Room"},
+    {standard:12000,sx_ap:null,hnz:null, anaesthetic:3000,theatre_min:150,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "High Anterior Resection":
     {standard:7500,sx_ap:null,hnz:null, anaesthetic:3800,theatre_min:180,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Examination Under Anaesthetic + Proceed":
@@ -21082,16 +21085,16 @@ const PROCEDURES = {
   "Examination Under Anaesthetic + Botox":
     {standard:1750,sx_ap:null,hnz:null, anaesthetic:800,theatre_min:30,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   "Examination Under Anaesthetic + Internal Sphincterotomy + Sigmoidoscopy":
-    {standard:1750,sx_ap:null,hnz:null, anaesthetic:800,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
+    {standard:2000,sx_ap:null,hnz:null, anaesthetic:800,theatre_min:45,recovery_min:60,typical_stay:"Day Stay – Single Room"},
   // ── IN-CLINIC SX AP (no theatre/hospital fees) ──────────────────────
   "Haemorrhoid Band Ligation (In-clinic, SX AP)":
-    {standard:null,sx_ap:330,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Day Stay – Single Room"},
+    {standard:450,sx_ap:330,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Day Stay – Single Room"},
   "Haemorrhoid Injection (In-clinic, SX AP)":
-    {standard:null,sx_ap:330,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Day Stay – Single Room"},
+    {standard:450,sx_ap:330,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Day Stay – Single Room"},
   "Rigid Sigmoidoscopy (In-clinic, SX AP)":
-    {standard:null,sx_ap:77,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Day Stay – Single Room"},
+    {standard:100,sx_ap:77,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Day Stay – Single Room"},
   "Proctoscopy / Anoscopy (In-clinic, SX AP)":
-    {standard:null,sx_ap:55,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Day Stay – Single Room"},
+    {standard:100,sx_ap:55,hnz:null, anaesthetic:0,theatre_min:0,recovery_min:0,typical_stay:"Day Stay – Single Room"},
 };
 
 const PROC_NAMES = Object.keys(PROCEDURES).sort();
@@ -21422,7 +21425,8 @@ function calculate() {
       "\u2020 Anaesthetist's fee is included in the all-inclusive package price.",
       "",
       "This procedure is quoted as a single all-inclusive package covering the surgeon's fee, hospital fees, anaesthetist's fee and all consumables.",
-      "All fees NZD incl. GST 15%."
+      "All fees NZD incl. GST 15%.",
+      "Pricing last updated: " + PRICING_LAST_UPDATED + "."
     ]);
     lastCalc = { procName, insKey, stay: stayLabel(nights, roomType), tMin, rMin,
                  surgeonFee: null, anaestheticFee: 0, tFee: 0, rFee: 0, aFee: 0,
@@ -21534,6 +21538,7 @@ function calculate() {
   else                     noteLines.push("Hospital fees: " + (hospName === SET_FEE_HOSPITAL ? "St George's schedule effective 1 April 2026" : hospName) + ", calculated on the estimated theatre and recovery times above.");
   noteLines.push("Surgeon fees: pricing schedules reviewed August 2026.");
   noteLines.push("All fees NZD incl. GST 15%.");
+  noteLines.push("Pricing last updated: " + PRICING_LAST_UPDATED + ".");
   setSummaryNote(noteLines);
 
   lastCalc = { procName, insKey, stay, tMin, rMin, nights, roomType,
@@ -21579,6 +21584,12 @@ function todayStr() {
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 document.getElementById("estimateDate").value = todayStr();
+
+// Show when the fee schedules were last revised.
+(function () {
+  const el = document.getElementById("pricingUpdatedInline");
+  if (el) el.textContent = PRICING_LAST_UPDATED;
+})();
 
 // ═══════════════════════════════════════════════════════════════════
 // WORD DOCUMENT GENERATION
@@ -22022,6 +22033,11 @@ async function generateDoc() {
   children.push(new Paragraph({
     spacing: { before: 200, after: 0 },
     children: [new TextRun({ text: `Document prepared: ${estDate}`, size: 16, color: "AAAAAA", font: "Arial" })]
+  }));
+
+  children.push(new Paragraph({
+    spacing: { before: 20, after: 0 },
+    children: [new TextRun({ text: `Pricing last updated: ${PRICING_LAST_UPDATED}`, size: 16, color: "AAAAAA", font: "Arial" })]
   }));
 
   const document_ = new Document({
