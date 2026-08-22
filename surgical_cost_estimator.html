@@ -20487,6 +20487,29 @@ var __async = (__this, __arguments, generator) => {
         </div>
       </div>
 
+      <!-- Optional second procedure, charged at 60% of its surgeon's fee -->
+      <div class="form-row" id="proc2Row" style="display:none;">
+        <label>Second procedure</label>
+        <div class="proc-wrap" style="display:flex; gap:6px; align-items:flex-start;">
+          <div style="flex:1; position:relative;">
+            <input type="text" id="proc2Input" placeholder="Type to search…" autocomplete="off">
+            <div class="proc-dropdown" id="proc2Dropdown"></div>
+          </div>
+          <button type="button" class="quick-btn" id="proc2Clear" onclick="clearProc2()"
+                  style="flex:none;" title="Remove the second procedure">Clear</button>
+        </div>
+      </div>
+      <div class="form-row" id="proc2AddRow" style="display:none;">
+        <label></label>
+        <div style="flex:1;">
+          <button type="button" class="quick-btn" onclick="showProc2()">+ Add a second procedure</button>
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+            Charged at the full fee for the higher-priced procedure plus 60% of the second.
+            Theatre time is combined.
+          </div>
+        </div>
+      </div>
+
       <div class="form-row">
         <label for="surgeon">Surgeon</label>
         <select id="surgeon" onchange="updateSurgeon()">
@@ -20790,6 +20813,12 @@ function recoveryFee(m) {
 function nzd(v) {
   return "$" + Number(v).toLocaleString("en-NZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+// A second procedure done in the same session is charged at 60% of its fee.
+const SECOND_PROC_RATE = 0.60;
+// Anaesthetist cost per additional theatre minute, derived by linear regression
+// over the anaesthetic fees already in this schedule (R^2 = 0.86).
+const ANAES_PER_MIN = 13.58;
 
 // Whole dollars - used for fee ranges, where cents add nothing.
 function nzd0(v) {
@@ -21307,7 +21336,27 @@ function selectProc(name) {
   // automatically. The "Anaesthetist required" tick box adds the fee when one
   // is needed. applyAnaesRequired() re-renders the consumable list.
   syncAnaesRow(name);
-  applyAnaesRequired();
+
+  // Offer the second-procedure option, and drop any selection that is no longer
+  // valid (a bariatric package cannot be combined, nor can the same procedure twice).
+  const p1 = PROCEDURES[name];
+  const canCombine = !!p1 && p1.set_fee === undefined;
+  const addRow = document.getElementById("proc2AddRow");
+  const row2   = document.getElementById("proc2Row");
+  if (!canCombine) {
+    selectedProc2 = null;
+    if (proc2Input) proc2Input.value = "";
+    if (row2)   row2.style.display = "none";
+    if (addRow) addRow.style.display = "none";
+  } else {
+    if (selectedProc2 === name) { selectedProc2 = null; proc2Input.value = ""; }
+    const showing = selectedProc2 !== null;
+    if (row2)   row2.style.display = showing ? "" : "none";
+    if (addRow) addRow.style.display = showing ? "none" : "";
+  }
+
+  applyCombinedTimes();
+  syncConsumablesForBoth();
 }
 
 // ── Anaesthetist required (endoscopy) ────────────────────────────────
@@ -21342,6 +21391,112 @@ function applyAnaesRequired() {
   }
   renderConsumables();
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// SECOND PROCEDURE (optional)
+// Surgeon's fee = full fee for the higher-priced procedure + 60% of the other.
+// Theatre time is added together; recovery takes the longer of the two.
+// All-inclusive bariatric packages cannot be combined.
+// ═══════════════════════════════════════════════════════════════════
+let selectedProc2 = null;
+
+const proc2Input    = document.getElementById("proc2Input");
+const proc2Dropdown = document.getElementById("proc2Dropdown");
+
+// Bariatric packages are prepaid and all-inclusive, so they are not offered here.
+function combinableNames() {
+  return PROC_NAMES.filter(n => PROCEDURES[n] && PROCEDURES[n].set_fee === undefined);
+}
+
+function renderDropdown2(filter) {
+  const q = (filter || "").toLowerCase().trim();
+  const pool = combinableNames().filter(n => n !== procInput.value.trim());
+  const matches = q ? pool.filter(n => n.toLowerCase().includes(q)) : pool;
+  proc2Dropdown.innerHTML = "";
+  if (!matches.length) {
+    proc2Dropdown.innerHTML = '<div class="proc-option" style="color:#999;font-style:italic;">No match</div>';
+  } else {
+    matches.forEach(name => {
+      const div = document.createElement("div");
+      div.className = "proc-option";
+      div.textContent = name;
+      div.addEventListener("mousedown", e => { e.preventDefault(); selectProc2(name); });
+      proc2Dropdown.appendChild(div);
+    });
+  }
+}
+
+function selectProc2(name) {
+  selectedProc2 = name;
+  proc2Input.value = name;
+  proc2Dropdown.classList.remove("open");
+  applyCombinedTimes();
+  syncConsumablesForBoth();
+}
+
+function showProc2() {
+  document.getElementById("proc2Row").style.display = "";
+  document.getElementById("proc2AddRow").style.display = "none";
+  proc2Input.focus();
+}
+
+function clearProc2() {
+  selectedProc2 = null;
+  proc2Input.value = "";
+  proc2Dropdown.classList.remove("open");
+  document.getElementById("proc2Row").style.display = "none";
+  document.getElementById("proc2AddRow").style.display = procInput.value.trim() ? "" : "none";
+  applyCombinedTimes();
+  syncConsumablesForBoth();
+}
+
+// Theatre minutes add up; recovery takes the longer of the two. Stay follows
+// whichever procedure needs the longer admission.
+function applyCombinedTimes() {
+  const p1 = PROCEDURES[procInput.value.trim()];
+  const p2 = selectedProc2 ? PROCEDURES[selectedProc2] : null;
+  if (!p1) return;
+  const t = p1.theatre_min  + (p2 ? p2.theatre_min  : 0);
+  const r = p2 ? Math.max(p1.recovery_min, p2.recovery_min) : p1.recovery_min;
+  document.getElementById("theatreMin").value  = t;
+  document.getElementById("recoveryMin").value = r;
+  const stays = [p1.typical_stay].concat(p2 ? [p2.typical_stay] : []);
+  const overnight = stays.some(x => !x.startsWith("Day Stay"));
+  const shared    = stays.every(x => x.includes("Shared"));
+  document.getElementById("roomType").value   = shared ? "shared" : "single";
+  document.getElementById("stayNights").value = overnight ? "1" : "0";
+  calculate();
+}
+
+// Default consumables for both procedures, without duplicating a shared item.
+function syncConsumablesForBoth() {
+  const names = [procInput.value.trim()].concat(selectedProc2 ? [selectedProc2] : []);
+  const wanted = [];
+  names.forEach(n => (PROC_CONSUMABLES[n] || []).forEach(c => wanted.push(c)));
+  consumables = wanted.map(cname => {
+    const baseCost = PRESET_CONSUMABLES[cname] || 0;
+    return { name: cname, baseCost, chargedCost: chargedFor(cname, baseCost) };
+  });
+  applyAnaesRequired();
+}
+
+proc2Input.addEventListener("focus", () => {
+  renderDropdown2(proc2Input.value);
+  proc2Dropdown.classList.add("open");
+});
+proc2Input.addEventListener("input", () => {
+  selectedProc2 = null;
+  renderDropdown2(proc2Input.value);
+  proc2Dropdown.classList.add("open");
+  calculate();
+});
+proc2Input.addEventListener("keydown", e => {
+  if (e.key === "Escape") proc2Dropdown.classList.remove("open");
+});
+document.addEventListener("click", e => {
+  if (!proc2Input.contains(e.target) && !proc2Dropdown.contains(e.target))
+    proc2Dropdown.classList.remove("open");
+});
 
 procInput.addEventListener("focus", () => {
   renderDropdown(procInput.value);
@@ -21480,19 +21635,50 @@ function calculate() {
   const stay     = stayLabel(nights, roomType);
 
   const proc = PROCEDURES[procName];
-  let surgeonFee = null, surgeonFeeFallback = false;
-  if (proc) {
+
+  // Reads the surgeon's fee for a procedure under the selected insurer.
+  function feeFor(pr) {
+    if (!pr) return { fee: null, fallback: false };
     if (isOtherIns) {
-      surgeonFee = proc.standard ?? null;
-      if (surgeonFee === null) {                 // no standard private fee listed
-        surgeonFee = proc.sx_ap ?? null;         // → fall back to Southern Cross AP
-        surgeonFeeFallback = surgeonFee !== null;
-      }
-    } else {
-      surgeonFee = proc[insKey] ?? null;
+      let f = pr.standard ?? null, fb = false;
+      if (f === null) { f = pr.sx_ap ?? null; fb = f !== null; }
+      return { fee: f, fallback: fb };
     }
+    return { fee: pr[insKey] ?? null, fallback: false };
   }
-  const anaestheticFee = proc ? proc.anaesthetic : 0;
+
+  const proc2Name = (selectedProc2 && selectedProc2 !== procName) ? selectedProc2 : null;
+  const proc2     = proc2Name ? PROCEDURES[proc2Name] : null;
+  // Bariatric packages are all-inclusive, so they are never combined.
+  const isCombined = !!(proc && proc2 && proc.set_fee === undefined && proc2.set_fee === undefined);
+
+  const f1 = feeFor(proc), f2 = feeFor(proc2);
+  let surgeonFee = f1.fee, surgeonFeeFallback = f1.fallback;
+  let secondFeeMissing = false;
+
+  if (isCombined) {
+    if (f1.fee === null || f2.fee === null) {
+      // Without both fees the 60% rule cannot be applied, so fall back to
+      // whichever fee is known and flag it.
+      surgeonFee = f1.fee !== null ? f1.fee : f2.fee;
+      secondFeeMissing = true;
+    } else {
+      const hi = Math.max(f1.fee, f2.fee), lo = Math.min(f1.fee, f2.fee);
+      surgeonFee = Math.round(hi + lo * SECOND_PROC_RATE);
+    }
+    surgeonFeeFallback = f1.fallback || f2.fallback;
+  }
+
+  // Anaesthetist: the larger procedure's fee, plus the extra theatre time the
+  // second procedure adds, priced from the schedule's own time relationship.
+  let anaestheticFee = proc ? proc.anaesthetic : 0;
+  if (isCombined) {
+    const bigger  = proc.anaesthetic >= proc2.anaesthetic ? proc  : proc2;
+    const smaller = bigger === proc ? proc2 : proc;
+    anaestheticFee = bigger.anaesthetic > 0
+      ? Math.round((bigger.anaesthetic + smaller.theatre_min * ANAES_PER_MIN) / 50) * 50
+      : 0;
+  }
   // ── All-inclusive set fee (bariatric) ──
   if (proc && proc.set_fee !== undefined) {
     const setFee = proc.set_fee;
@@ -21522,17 +21708,21 @@ function calculate() {
 
   const hospName = getHospitalName();
   const isSE = hospName === "Southern Endoscopy Centre";
-  const seHospFee = (isSE && hospKey === "standard" && SE_HOSP_FEES[procName] !== undefined)
+  // Fixed and packaged hospital prices cover one named procedure only. Once a
+  // second procedure is added the hospital is charged on the combined theatre
+  // and recovery time instead.
+  const seHospFee = (!isCombined && isSE && hospKey === "standard" && SE_HOSP_FEES[procName] !== undefined)
     ? SE_HOSP_FEES[procName] : null;
 
   // ── St George's fixed price (inguinal hernia, self-funding patients) ──
-  const setFee = getSetFee(procName, hospKey, hospName);
+  const setFee = isCombined ? null : getSetFee(procName, hospKey, hospName);
 
+  const hasFixedHosp = !isCombined && proc && proc.hosp_fixed !== undefined;
   const tFee  = seHospFee !== null ? seHospFee
               : setFee ? setFee.price
-              : (proc && proc.hosp_fixed !== undefined) ? proc.hosp_fixed
+              : hasFixedHosp ? proc.hosp_fixed
               : theatreFee(tMin);
-  const rFee  = (seHospFee !== null || setFee || (proc && proc.hosp_fixed !== undefined))
+  const rFee  = (seHospFee !== null || setFee || hasFixedHosp)
               ? 0 : recoveryFee(rMin);
   const aFee  = setFee ? setFeeAccommodation(setFee, nights, roomType)
               : (proc && proc.accom_incl) ? 0
@@ -21586,7 +21776,7 @@ function calculate() {
     : sedationOnQuote ? nzd(consumables.filter(c => /IV Sedation/i.test(c.name)).reduce((t,c)=>t+c.chargedCost,0))
     : (isEndoscopy ? "Not required" : "N/A (local)");
   document.getElementById("r_anaes").textContent    = anaesDisplay;
-  const isFixed = seHospFee !== null || setFee || (proc && proc.hosp_fixed !== undefined);
+  const isFixed = seHospFee !== null || setFee || hasFixedHosp;
   const thLbl = document.getElementById("r_theatre_lbl");
   if (thLbl) thLbl.textContent = setFee ? "Hospital Fixed Price"
                                : isFixed ? "Hospital Fixed Fee" : "Theatre";
@@ -21613,7 +21803,7 @@ function calculate() {
 
   // ── On-screen notes: mirror the document footnotes ──
   const usesSEPrices = !!(isSE && seHospFee);
-  const hasHospFixed = !!(proc && proc.hosp_fixed !== undefined) && !usesSEPrices && !setFee;
+  const hasHospFixed = hasFixedHosp && !usesSEPrices && !setFee;
   const hasSedation  = !setFee && consumables.some(c => /IV Sedation/i.test(c.name));
   const noteLines = [];
   if (anaestheticFee > 0)  noteLines.push("\u2020 Anaesthetist bills separately. Estimate only \u2013 actual fee varies by duration and complexity.");
@@ -21632,7 +21822,8 @@ function calculate() {
 
   lastCalc = { procName, insKey, stay, tMin, rMin, nights, roomType,
     surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
-    isSE, seHospFee, setFee, isOtherIns, surgeonFeeFallback };
+    isSE, seHospFee, setFee, isOtherIns, surgeonFeeFallback,
+    proc2Name, isCombined };
 }
 
 function clearForm() {
@@ -21731,7 +21922,7 @@ async function generateDoc() {
 
   const { surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
           tMin, rMin, stay, procName, isSE, seHospFee, setFee, nights, roomType,
-          isOtherIns, surgeonFeeFallback } = lastCalc;
+          isOtherIns, surgeonFeeFallback, proc2Name, isCombined } = lastCalc;
   // Consumables are covered by a fixed price and are not itemised in the document
   const docConsumables = setFee ? [] : consumables;
   // The patient quote is deliberately not itemised. IV sedation is an
@@ -21872,8 +22063,8 @@ async function generateDoc() {
   // and treated, so surgeon, hospital and total are each shown as a range
   // rather than a single figure that would understate the likely cost.
   const docFeeKey  = isOtherIns ? (surgeonFeeFallback ? "sx_ap" : "standard") : insKey;
-  const endoFeeR   = surgeonFee === null ? null : endoscopyRange(procName, docFeeKey);
-  const endoHospR  = endoscopyHospitalRange(procName);
+  const endoFeeR   = (surgeonFee === null || isCombined) ? null : endoscopyRange(procName, docFeeKey);
+  const endoHospR  = isCombined ? null : endoscopyHospitalRange(procName);
   const asRange    = !!(endoFeeR && endoHospR);
   const rng        = (lo, hi) => nzd0(lo) + " – " + nzd0(hi);
 
@@ -21926,9 +22117,21 @@ async function generateDoc() {
   }
 
   function infoCells(label, value) {
+    // An array renders as several lines inside the one cell.
+    const valueCell = Array.isArray(value)
+      ? new TableCell({
+          width: { size: CONTENT_W - 3000, type: WidthType.DXA }, borders,
+          shading: { fill: WHITE, color: "auto", type: "clear" }, margins: cellPad,
+          children: [new Paragraph({
+            children: value.map((line, i) => new TextRun({
+              text: String(line), size: 20, font: "Arial", break: i === 0 ? 0 : 1
+            }))
+          })]
+        })
+      : makeCell(value, CONTENT_W - 3000, WHITE, "000000", false, false, 20);
     return new TableRow({ children: [
       makeCell(label, 3000, PALE, NAVY, true, false, 20),
-      makeCell(value, CONTENT_W - 3000, WHITE, "000000", false, false, 20)
+      valueCell
     ]});
   }
 
@@ -21972,7 +22175,9 @@ async function generateDoc() {
       infoCells("Patient Name",     patient),
       infoCells("Date of Birth",    dob),
       infoCells("Date of Estimate", estDate),
-      infoCells("Procedure",        procName),
+      infoCells("Procedure",        isCombined && proc2Name
+        ? [procName, "+ " + proc2Name]
+        : procName),
       infoCells("Hospital",         hospital),
     ]
   });
@@ -22024,14 +22229,14 @@ async function generateDoc() {
     const out = [];
     const isStGeorges  = hospital === SET_FEE_HOSPITAL;
     const usesSEPrices = !!(isSE && seHospFee);
-    const hasHospFixed = !!(proc && proc.hosp_fixed !== undefined) && !usesSEPrices && !setFee;
+    const hasHospFixed = !!(proc && proc.hosp_fixed !== undefined) && !isCombined && !usesSEPrices && !setFee;
     const hasSedation  = docConsumables.some(c => /IV Sedation/i.test(c.name));
     const isColon      = /Colonoscopy|Sigmoidoscopy/.test(procName);
     const isGastro     = /Gastroscopy/.test(procName);
     // Match the range to the schedule the surgeon's fee came from.
     const feeKey       = isOtherIns ? (surgeonFeeFallback ? "sx_ap" : "standard") : insKey;
-    const endoRange    = surgeonFee === null ? null : endoscopyRange(procName, feeKey);
-    const endoHosp     = endoscopyHospitalRange(procName);
+    const endoRange    = (surgeonFee === null || isCombined) ? null : endoscopyRange(procName, feeKey);
+    const endoHosp     = isCombined ? null : endoscopyHospitalRange(procName);
     const quotedAsRange = !!(endoRange && endoHosp);
 
     // ── Layout helpers: the disclaimer is grouped into short titled
