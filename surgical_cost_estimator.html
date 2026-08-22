@@ -21755,7 +21755,7 @@ async function generateDoc() {
     const CONTENT_W = 9298; const COL1 = 6900; const COL2 = CONTENT_W - COL1;
     const border = { style: "single", size: 1, color: "CCCCCC" };
     const borders = { top: border, bottom: border, left: border, right: border };
-    const cellPad = { top: 80, bottom: 80, left: 120, right: 120 };
+    const cellPad = { top: 55, bottom: 55, left: 120, right: 120 };
     function makeCell2(text, colW, fill, textColor, bold, rightAlign, fontSize) {
       return new TableCell({
         width: { size: colW, type: WidthType.DXA }, borders,
@@ -21902,7 +21902,7 @@ async function generateDoc() {
 
   const border = { style: "single", size: 1, color: "CCCCCC" };
   const borders = { top: border, bottom: border, left: border, right: border };
-  const cellPad = { top: 80, bottom: 80, left: 120, right: 120 };
+  const cellPad = { top: 55, bottom: 55, left: 120, right: 120 };
 
   function makeCell(text, colW, fill, textColor, bold, rightAlign, fontSize) {
     return new TableCell({
@@ -22033,7 +22033,7 @@ async function generateDoc() {
     //    sections of bulleted points rather than a run of loose sentences.
     function heading(text) {
       return new Paragraph({
-        spacing: { before: 180, after: 70 },
+        spacing: { before: 120, after: 50 },
         children: [new TextRun({ text, size: 18, bold: true, color: NAVY, font: "Arial" })]
       });
     }
@@ -22042,7 +22042,7 @@ async function generateDoc() {
       if (label) runs.push(new TextRun({ text: label + " \u2013 ", size: 17, bold: true, color: GREY, font: "Arial" }));
       runs.push(new TextRun({ text, size: 17, color: GREY, font: "Arial" }));
       return new Paragraph({
-        spacing: { before: 0, after: 55 },
+        spacing: { before: 0, after: 40 },
         indent: { left: 200, hanging: 200 },
         children: runs
       });
@@ -22180,11 +22180,10 @@ async function generateDoc() {
       para(qualLine,   { italic: true, size: 18, color: "999999", after: 120 }),
     ]),
     hrPara(),
-    para("SURGICAL COST ESTIMATE", { bold: true, size: 26, color: NAVY, center: true, after: 200 }),
+    para("SURGICAL COST ESTIMATE", { bold: true, size: 26, color: NAVY, center: true, after: 120 }),
     infoTable,
-    para(""),
     new Paragraph({
-      spacing: { before: 0, after: 160 },
+      spacing: { before: 120, after: 120 },
       children: [
         new TextRun({ text: "Surgeon:  ", bold: true, size: 20, font: "Arial" }),
         new TextRun({ text: surgeon + "          ", size: 20, font: "Arial" }),
@@ -22192,9 +22191,8 @@ async function generateDoc() {
         new TextRun({ text: insLabel, size: 20, font: "Arial" }),
       ]
     }),
-    para("ESTIMATED COST BREAKDOWN", { bold: true, size: 22, color: NAVY, after: 80 }),
+    para("ESTIMATED COST BREAKDOWN", { bold: true, size: 22, color: NAVY, after: 60 }),
     costTable,
-    para(""),
     ...buildFootnotes(fn, para),
   ];
 
@@ -22222,7 +22220,7 @@ async function generateDoc() {
       properties: {
         page: {
           size: { width: 11906, height: 16838 }, // A4
-          margin: { top: 1440, bottom: 1440, left: 1800, right: 1800 }
+          margin: { top: 1080, bottom: 1080, left: 1440, right: 1440 }
         }
       },
       children
