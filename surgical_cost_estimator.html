@@ -21981,7 +21981,7 @@ async function generateDoc() {
     // ══════ 2. Why the final invoice may differ ══════
     const changes = [];
     if (usesSEPrices)        changes.push("Hospital fees are averages from a nine-month snapshot and may be higher if additional intervention or time is required.");
-    else if (setFee)         changes.push("Accommodation beyond the stated allowance, and any return to theatre, are charged in addition.");
+    else if (setFee)         changes.push("Accommodation beyond the stated allowance is charged in addition.");
     else if (hasHospFixed)   changes.push("The fixed price may not apply if additional intervention or time is required.");
     else                     changes.push("Charges will increase if the procedure takes longer than the estimated theatre and recovery times.");
     if (!setFee && supplyItems.length > 0)
