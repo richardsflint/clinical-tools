@@ -21970,14 +21970,42 @@ async function generateDoc() {
         { size: 16, after: 100, italic: true }));
     }
 
-    // ── Contacts: only those relevant to this estimate ──
-    out.push(para(isStGeorges
-      ? "For queries regarding hospital costs, contact Sarah Jane at St George\u2019s Hospital on 03 375 6101"
-      : `For queries regarding hospital costs, please contact ${hospital} directly.`,
-      { size: 18, after: 40 }));
-    if (anaestheticFee > 0 || hasSedation) {
-      out.push(para("For queries regarding anaesthetist costs, contact Anaesthetic Associates on 03 365 3777", { size: 18, after: 100 }));
+    // ── Contacts: presented as a shaded callout so they stand out ──
+    // Each line is built from separate runs so the contact name and phone
+    // number are bold while the surrounding wording stays plain.
+    function contactLine(lead, strong, isLast) {
+      return new Paragraph({
+        spacing: { before: 0, after: isLast ? 120 : 60 },
+        indent: { left: 170, right: 170 },
+        shading: { type: ShadingType.CLEAR, color: "auto", fill: PALE },
+        children: [
+          new TextRun({ text: lead,   size: 20, color: "000000", font: "Arial" }),
+          new TextRun({ text: strong, size: 20, color: NAVY, bold: true, font: "Arial" })
+        ]
+      });
     }
+
+    const contacts = [];
+    contacts.push(isStGeorges
+      ? ["Hospital costs \u2013 ", "Sarah Jane, St George\u2019s Hospital, 03 375 6101"]
+      : ["Hospital costs \u2013 ", `${hospital}`]);
+    if (anaestheticFee > 0 || hasSedation) {
+      contacts.push(["Anaesthetist costs \u2013 ", "Anaesthetic Associates, 03 365 3777"]);
+    }
+
+    // Spacer, then a shaded heading, then the contact lines.
+    out.push(para("", { size: 18, after: 0 }));
+    out.push(new Paragraph({
+      spacing: { before: 0, after: 60 },
+      indent: { left: 170, right: 170 },
+      shading: { type: ShadingType.CLEAR, color: "auto", fill: PALE },
+      border: { top: { style: BorderStyle.SINGLE, size: 6, color: NAVY, space: 6 } },
+      children: [new TextRun({
+        text: "If you would like clarity on these costs before admission, please get in touch:",
+        size: 20, bold: true, color: NAVY, font: "Arial"
+      })]
+    }));
+    contacts.forEach((c, i) => out.push(contactLine(c[0], c[1], i === contacts.length - 1)));
     return out;
   }
 
