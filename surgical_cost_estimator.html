@@ -21582,10 +21582,13 @@ proc2Input.addEventListener("input", () => {
   calculate();
 });
 // Same as the primary procedure field: commit an exact typed match on blur
-// so leaving the field always fully applies the selection.
+// so leaving the field always fully applies the selection. Restricted to the
+// same combinable list the dropdown uses - bariatric all-inclusive packages
+// cannot be a second procedure, and it cannot duplicate procedure 1.
 proc2Input.addEventListener("blur", () => {
   const typed = proc2Input.value.trim();
-  if (typed && typed !== selectedProc2 && PROCEDURES[typed]) selectProc2(typed);
+  if (typed && typed !== selectedProc2 && typed !== procInput.value.trim()
+      && combinableNames().includes(typed)) selectProc2(typed);
 });
 proc2Input.addEventListener("keydown", e => {
   if (e.key === "Escape") proc2Dropdown.classList.remove("open");
@@ -21772,13 +21775,16 @@ function calculate() {
   const f1 = feeFor(proc), f2 = feeFor(proc2);
   let surgeonFee = f1.fee, surgeonFeeFallback = f1.fallback;
   let secondFeeMissing = false;
+  let missingFeeProcName = null;
 
   if (isCombined) {
     if (f1.fee === null || f2.fee === null) {
       // Without both fees the 60% rule cannot be applied, so fall back to
-      // whichever fee is known and flag it.
+      // whichever fee is known and flag it - the total otherwise silently
+      // understates the missing procedure.
       surgeonFee = f1.fee !== null ? f1.fee : f2.fee;
       secondFeeMissing = true;
+      missingFeeProcName = f1.fee === null ? procName : proc2Name;
     } else {
       const hi = Math.max(f1.fee, f2.fee), lo = Math.min(f1.fee, f2.fee);
       surgeonFee = Math.round(hi + lo * SECOND_PROC_RATE);
@@ -21909,9 +21915,6 @@ function calculate() {
     if (isSE && hospKey === "standard" && SE_HOSP_FEES[nm] !== undefined) return true;
     return false;
   }
-  const seBase     = (isSE && hospKey === "standard" && SE_HOSP_FEES[procName] !== undefined)
-                     ? SE_HOSP_FEES[procName] : null;
-  const fixedBase  = !!(proc && proc.hosp_fixed !== undefined);
   const fixed1     = fixedPriceFor(procName, proc);
   const fixed2     = fixedPriceFor(proc2Name, proc2);
   const anyFixed   = fixed1 || fixed2;
@@ -22004,6 +22007,10 @@ function calculate() {
       + ", then enter the amount(s) above. Until then the total is shown as a \u201cfrom\u201d figure.");
   }
 
+  if (isCombined && secondFeeMissing) {
+    warnings.push("\u26a0 No fee is listed for " + missingFeeProcName + " under this insurer, so the surgeon\u2019s fee shown covers "
+      + (missingFeeProcName === procName ? proc2Name : procName) + " only \u2014 the total understates the second procedure. Confirm and adjust manually before sending.");
+  }
   if (proc && surgeonFee === null) {
     warnings.push("\u26a0 Surgeon fee not listed for this insurance type \u2014 document will note this.");
   } else if (surgeonFeeFallback) {
@@ -22085,7 +22092,7 @@ function calculate() {
   lastCalc = { procName, insKey, stay, tMin, rMin, nights, roomType,
     surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
     isSE, seHospFee, setFee, isOtherIns, surgeonFeeFallback,
-    proc2Name, isCombined,
+    proc2Name, isCombined, secondFeeMissing, missingFeeProcName,
     extrasMode, exHosp, exAnaes, exHospPending, exAnaesPending, exAnyPending,
     fixedProcName };
 }
@@ -22096,8 +22103,15 @@ function clearForm() {
   document.getElementById("estimateDate").value = todayStr();
   procInput.value = "";
   selectedProc = null;
+  // Second procedure, its extra-cost fields, and the "other hospital" text box
+  // all carry state that must not leak into the next patient's estimate.
+  clearProc2();
   document.getElementById("surgeon").value = "Richard Flint";
   document.getElementById("hospital").value = "St George's Hospital, Christchurch";
+  const hospitalOtherRow = document.getElementById("hospitalOtherRow");
+  if (hospitalOtherRow) hospitalOtherRow.style.display = "none";
+  const hospitalOther = document.getElementById("hospitalOther");
+  if (hospitalOther) hospitalOther.value = "";
   document.getElementById("insurance").value  = "standard";
   document.getElementById("roomType").value   = "single";
   document.getElementById("stayNights").value = "1";
@@ -22106,6 +22120,7 @@ function clearForm() {
   document.getElementById("notes").value = "";
   document.getElementById("consName").value = "";
   document.getElementById("consCost").value = "";
+  syncAnaesRow("");
   consumables = [];
   renderConsumables();
   document.getElementById("warnBanner").classList.remove("show");
@@ -22187,6 +22202,7 @@ async function generateDoc() {
   const { surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
           tMin, rMin, stay, procName, isSE, seHospFee, setFee, nights, roomType,
           isOtherIns, surgeonFeeFallback, proc2Name, isCombined,
+          secondFeeMissing, missingFeeProcName,
           extrasMode, exHosp, exAnaes, exHospPending, exAnaesPending, exAnyPending,
           fixedProcName } = lastCalc;
   // Consumables are covered by a fixed price and are not itemised in the document
@@ -22209,7 +22225,7 @@ async function generateDoc() {
   // ── All-inclusive bariatric set fee document ──
   if (proc && proc.set_fee !== undefined) {
     const { pkgBase, addSurgeon, addAnaes, addHosp,
-            hospPending, anaesPending, anyPending } = lastCalc;
+            surgeonPending, hospPending, anaesPending, anyPending } = lastCalc;
     const setFee = grandTotal;   // package price plus anything added
     const surgeonName = document.getElementById("surgeon").value || "Richard Flint";
     const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
@@ -22335,6 +22351,7 @@ async function generateDoc() {
       fn2("Pre-payment of the full amount is required prior to admission. Please contact our rooms to arrange payment."),
       fn2("All fees are in New Zealand Dollars (NZD) and include GST at 15%."),
       fn2("This estimate is provided as a guide only. In exceptional clinical circumstances, additional charges may apply and will be discussed with you in advance."),
+      fn2("This quote is valid for 30 days from the date of estimate."),
     ];
     if (notes) {
       bariatricChildren.push(para2(""));
@@ -22567,6 +22584,9 @@ async function generateDoc() {
     let surgeonNote = null;
     if (surgeonFee === null) {
       surgeonNote = "No fee is listed for this insurance type, so none is included in the total above. Please contact the rooms for a quote.";
+    } else if (isCombined && secondFeeMissing) {
+      surgeonNote = "No fee is listed for " + missingFeeProcName + " under this insurer, so the fee shown covers "
+        + (missingFeeProcName === procName ? proc2Name : procName) + " only. Please contact the rooms to confirm the additional fee.";
     } else if (endoRange) {
       surgeonNote = `Shown as a range because the fee for ${endoRange.label} depends on what is found and treated (biopsies, polypectomy, dilatation and similar). A straightforward procedure sits at the lower end.`;
     } else if (isOtherIns) {
@@ -22639,6 +22659,7 @@ async function generateDoc() {
     // ══════ 3. Standing caveats ══════
     section("PLEASE NOTE", [
       "This estimate is a guide only and is not a guarantee of cost.",
+      "This quote is valid for 30 days from the date of estimate.",
       insKey === "sx_ap"
         ? "This estimate is prepared under the Southern Cross Affiliated Provider agreement, which covers the procedure named above. Any additional procedure must be approved by Southern Cross before surgery or it may not be covered."
         : isOtherIns
