@@ -22021,6 +22021,12 @@ async function generateDoc() {
       contacts.push(["Anaesthetist costs \u2013 ", "Anaesthetic Associates, 03 365 3777"]);
     }
 
+    // Heading names only the fees a contact is actually given for.
+    const hasAnaesContact = contacts.length > 1;
+    const contactHeading = hasAnaesContact
+      ? "If you would like clarity on the hospital or anaesthetist fees, please contact:"
+      : "If you would like clarity on the hospital fees, please contact:";
+
     // Spacer, then a shaded heading, then the contact lines.
     out.push(para("", { size: 18, after: 0 }));
     out.push(new Paragraph({
@@ -22029,7 +22035,7 @@ async function generateDoc() {
       shading: { type: ShadingType.CLEAR, color: "auto", fill: PALE },
       border: { top: { style: BorderStyle.SINGLE, size: 6, color: NAVY, space: 6 } },
       children: [new TextRun({
-        text: "If you would like clarity on these costs before admission, please get in touch:",
+        text: contactHeading,
         size: 20, bold: true, color: NAVY, font: "Arial"
       })]
     }));
