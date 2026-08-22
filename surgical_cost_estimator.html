@@ -21478,7 +21478,8 @@ function isPackageWithExtra() {
   if (!selectedProc2) return false;
   // Southern Cross AP is priced ad hoc by the facility when anything is added.
   if (document.getElementById("insurance").value === "sx_ap") return true;
-  return hasAnySetFee(procInput.value.trim());
+  // Order does not matter: a fixed price on either procedure needs a re-quote.
+  return hasAnySetFee(procInput.value.trim()) || hasAnySetFee(selectedProc2);
 }
 
 function syncAddHospRow() {
@@ -21852,10 +21853,24 @@ function calculate() {
   // George's set fee schedule, the Southern Endoscopy averages, and the fixed
   // endoscopy charges (which apply to every payer). Any of them means the
   // hospital has to re-quote once a second procedure is added.
+  //
+  // This is checked for both procedures - it makes no difference which one was
+  // entered first.
+  function fixedPriceFor(nm, pr) {
+    if (!nm || !pr) return false;
+    if (pr.hosp_fixed !== undefined) return true;
+    if (getSetFee(nm, hospKey, hospName)) return true;
+    if (isSE && hospKey === "standard" && SE_HOSP_FEES[nm] !== undefined) return true;
+    return false;
+  }
   const seBase     = (isSE && hospKey === "standard" && SE_HOSP_FEES[procName] !== undefined)
                      ? SE_HOSP_FEES[procName] : null;
   const fixedBase  = !!(proc && proc.hosp_fixed !== undefined);
-  const anyFixed   = !!setFeeBase || seBase !== null || fixedBase;
+  const fixed1     = fixedPriceFor(procName, proc);
+  const fixed2     = fixedPriceFor(proc2Name, proc2);
+  const anyFixed   = fixed1 || fixed2;
+  // Named in the prompt so it is clear which procedure carries the fixed price.
+  const fixedProcName = fixed1 ? procName : (fixed2 ? proc2Name : procName);
   // Southern Cross AP is treated the same way: the facility holds the AP
   // contract and prices anything added to it ad hoc, so their charge and the
   // anaesthetist's are obtained rather than calculated.
@@ -21933,12 +21948,13 @@ function calculate() {
     const calls2 = [];
     if (exHospPending)  calls2.push(hospContact2);
     if (exAnaesPending) calls2.push("Anaesthetic Associates on 03 365 3777");
+    const otherProc = fixedProcName === procName ? proc2Name : procName;
     const reason = insKey === "sx_ap"
       ? "The facility holds the Southern Cross AP contract and prices anything added to it ad hoc."
-      : "The fixed hospital price covers " + procName + " only.";
+      : "The fixed hospital price covers " + fixedProcName + " only.";
     warnings.push("\u26a0 " + reason
       + " Before sending this estimate, contact " + calls2.join(" and ")
-      + " for the cost of also doing " + proc2Name
+      + " for the cost of also doing " + otherProc
       + ", then enter the amount(s) above. Until then the total is shown as a \u201cfrom\u201d figure.");
   }
 
@@ -22024,7 +22040,8 @@ function calculate() {
     surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
     isSE, seHospFee, setFee, isOtherIns, surgeonFeeFallback,
     proc2Name, isCombined,
-    extrasMode, exHosp, exAnaes, exHospPending, exAnaesPending, exAnyPending };
+    extrasMode, exHosp, exAnaes, exHospPending, exAnaesPending, exAnyPending,
+    fixedProcName };
 }
 
 function clearForm() {
@@ -22124,7 +22141,8 @@ async function generateDoc() {
   const { surgeonFee, anaestheticFee, tFee, rFee, aFee, hospTotal, consTotal, grandTotal,
           tMin, rMin, stay, procName, isSE, seHospFee, setFee, nights, roomType,
           isOtherIns, surgeonFeeFallback, proc2Name, isCombined,
-          extrasMode, exHosp, exAnaes, exHospPending, exAnaesPending, exAnyPending } = lastCalc;
+          extrasMode, exHosp, exAnaes, exHospPending, exAnaesPending, exAnyPending,
+          fixedProcName } = lastCalc;
   // Consumables are covered by a fixed price and are not itemised in the document
   const docConsumables = setFee ? [] : consumables;
   // The patient quote is deliberately not itemised. IV sedation is an
@@ -22532,7 +22550,7 @@ async function generateDoc() {
       hospNote = exHospPending
         ? (apBasis
             ? "To be confirmed. " + hospital + " holds the Southern Cross Affiliated Provider agreement and will price the additional procedure separately. We will confirm this with you before your admission."
-            : "To be confirmed. The hospital\u2019s fixed price covers " + procName + " only, so they will quote separately for the additional procedure. We will confirm this with you before your admission.")
+            : "To be confirmed. The hospital\u2019s fixed price covers " + (fixedProcName || procName) + " only, so they will quote separately for the additional procedure. We will confirm this with you before your admission.")
         : "The amount shown is the hospital\u2019s own quote covering both procedures, including theatre, recovery, accommodation and all medical supplies.";
     } else if (usesSEPrices) {
       hospNote = "An estimate only. The centre bills separately. Based on Southern Endoscopy Centre fee-for-service average prices (standard private). Equipment used during the procedure is charged to the patient, so the final amount will be higher if more is found and treated than anticipated.";
