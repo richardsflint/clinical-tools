@@ -21602,7 +21602,7 @@ function calculate() {
   if (surgeonFee === null && procName) noteLines.push("Surgeon's fee is not listed for this insurer and is NOT included in the total.");
   if (usesSEPrices)        noteLines.push("Hospital fees: Southern Endoscopy Centre fee-for-service averages (standard private).");
   else if (setFee)         noteLines.push("Hospital fees: fixed price under the St George's Set Fee Schedule effective " + SET_FEE_EFFECTIVE + (setFee.allInsurers ? "." : " (self-funding patients)."));
-  else if (hasHospFixed)   noteLines.push("Hospital fees: scheduled charge (" + fixedFeeLabel(hospName, insKey) + "), plus accommodation. Equipment used is charged back at cost.");
+  else if (hasHospFixed)   noteLines.push("Hospital fees: scheduled charge (" + fixedFeeLabel(hospName, insKey) + "), plus accommodation. Equipment used is charged to the patient.");
   else                     noteLines.push("Hospital fees: " + (hospName === SET_FEE_HOSPITAL ? "St George's schedule effective 1 April 2026" : hospName) + ", calculated on the estimated theatre and recovery times above.");
   noteLines.push("Surgeon fees reviewed: " + SURGEON_FEES_REVIEWED + ".");
   noteLines.push("All fees NZD incl. GST 15%.");
@@ -22045,11 +22045,11 @@ async function generateDoc() {
     // Lead with the same "estimate only / bills separately" framing used for
     // the anaesthetist, then state what the figure is based on.
     if (usesSEPrices) {
-      hospNote = "An estimate only. The centre bills separately. Based on Southern Endoscopy Centre fee-for-service average prices (standard private). Equipment used during the procedure is charged back at cost, so the final amount will be higher if more is found and treated than anticipated.";
+      hospNote = "An estimate only. The centre bills separately. Based on Southern Endoscopy Centre fee-for-service average prices (standard private). Equipment used during the procedure is charged to the patient, so the final amount will be higher if more is found and treated than anticipated.";
     } else if (setFee) {
       hospNote = `An estimate only. The hospital bills separately. Based on a fixed price of ${nzd(setFee.price)} under the St George\u2019s Set Fee Schedule effective ${SET_FEE_EFFECTIVE}${setFee.allInsurers ? "" : " (self-funding patients only)"}, covering the hospital stay${setFee.accomNightsIncl > 0 ? ` including ${setFee.accomNightsIncl} night accommodation` : " with accommodation charged separately"} and all medical supplies.`;
     } else if (hasHospFixed) {
-      hospNote = `An estimate only. The hospital bills separately. Based on the scheduled charge of ${nzd(tFee)} for the procedure as described, covering theatre, recovery and accommodation. Equipment used during the procedure is charged back at cost, so the final amount will be higher if more is found and treated than anticipated.`;
+      hospNote = `An estimate only. The hospital bills separately. Based on the scheduled charge of ${nzd(tFee)} for the procedure as described, covering theatre, recovery and accommodation. Equipment used during the procedure is charged to the patient, so the final amount will be higher if more is found and treated than anticipated.`;
     } else {
       hospNote = `An estimate only. The hospital bills separately, and the actual fee may vary with the time spent in theatre and recovery. Based on the ${isStGeorges ? "St George\u2019s Hospital Fees Schedule effective 1 April 2026" : hospital + " fee schedule"}, covering an estimated ${tMin} minutes in theatre and ${rMin} minutes in recovery, together with accommodation (${stay}) and all medical supplies.`;
     }
@@ -22063,9 +22063,9 @@ async function generateDoc() {
 
     // ══════ 2. Why the final invoice may differ ══════
     const changes = [];
-    if (usesSEPrices)        changes.push("Hospital fees are averages from a nine-month snapshot. Biopsy, polypectomy, dilatation or similar treatment at the time of the procedure uses additional equipment, which is charged back at cost.");
+    if (usesSEPrices)        changes.push("Hospital fees are averages from a nine-month snapshot. Biopsy, polypectomy, dilatation or similar treatment at the time of the procedure uses additional equipment, which is charged to the patient.");
     else if (setFee)         changes.push("Accommodation beyond the stated allowance is charged in addition.");
-    else if (hasHospFixed)   changes.push("Biopsy, polypectomy, dilatation or similar treatment at the time of the procedure uses additional equipment, which is charged back at cost.");
+    else if (hasHospFixed)   changes.push("Biopsy, polypectomy, dilatation or similar treatment at the time of the procedure uses additional equipment, which is charged to the patient.");
     else                     changes.push("Charges will increase if the procedure takes longer than the estimated theatre and recovery times.");
     if (!setFee && supplyItems.length > 0)
       changes.push("The hospital fee includes an allowance for the medical supplies expected for this procedure. Actual supply charges are confirmed at the time of surgery.");
