@@ -20657,9 +20657,8 @@ var __async = (__this, __arguments, generator) => {
         † Anaesthetist bills separately. Estimate only – actual fee varies by duration and complexity.<br><br>
         Hospital fees: St George's schedule effective 1 April 2026.<br>
         Inguinal hernia fixed prices: St George's Set Fee Schedule effective 1 August 2026 (self-funding patients).<br>
-        Surgeon fees: pricing schedules reviewed August 2026 (Southern Cross AP endoscopy fees per Southern Endoscopy agreement, Feb 2026).<br>
-        All fees NZD incl. GST 15%.<br>
-        <strong>Pricing last updated: <span id="pricingUpdatedInline">—</span></strong>
+        <strong>Surgeon fees reviewed: <span id="surgeonFeesReviewedInline">—</span></strong> (Southern Cross AP endoscopy fees per Southern Endoscopy agreement, Feb 2026).<br>
+        All fees NZD incl. GST 15%.
       </div>
     </div>
   </div>
@@ -20706,8 +20705,9 @@ function stayLabel(nights, roomType) {
 //   TOTAL = surgeon's fee + anaesthetist's fee + fixed hospital price
 // accomNightsIncl: nights of accommodation included (0 = accommodation excluded)
 // ════════════════════════════════════════════════════════════════
-// Date the fee schedules in this calculator were last revised.
-const PRICING_LAST_UPDATED = "22 August 2026";
+// Date the SURGEON fee schedule was last reviewed.
+// (Hospital fees are governed separately - see the hospital schedule dates below.)
+const SURGEON_FEES_REVIEWED = "22 August 2026";
 const SET_FEE_HOSPITAL = "St George's Hospital, Christchurch";
 const SET_FEE_EFFECTIVE = "1 August 2026";
 const ST_GEORGE_SET_FEES = {
@@ -21414,7 +21414,7 @@ function calculate() {
       "",
       "This procedure is quoted as a single all-inclusive package covering the surgeon's fee, hospital fees, anaesthetist's fee and all consumables.",
       "All fees NZD incl. GST 15%.",
-      "Pricing last updated: " + PRICING_LAST_UPDATED + "."
+      "Surgeon fees reviewed: " + SURGEON_FEES_REVIEWED + "."
     ]);
     lastCalc = { procName, insKey, stay: stayLabel(nights, roomType), tMin, rMin,
                  surgeonFee: null, anaestheticFee: 0, tFee: 0, rFee: 0, aFee: 0,
@@ -21524,9 +21524,8 @@ function calculate() {
   else if (setFee)         noteLines.push("Hospital fees: fixed price under the St George's Set Fee Schedule effective " + SET_FEE_EFFECTIVE + (setFee.allInsurers ? "." : " (self-funding patients)."));
   else if (hasHospFixed)   noteLines.push("Hospital fees: fixed price (" + fixedFeeLabel(hospName, insKey) + "), plus accommodation charged separately.");
   else                     noteLines.push("Hospital fees: " + (hospName === SET_FEE_HOSPITAL ? "St George's schedule effective 1 April 2026" : hospName) + ", calculated on the estimated theatre and recovery times above.");
-  noteLines.push("Surgeon fees: pricing schedules reviewed August 2026.");
+  noteLines.push("Surgeon fees reviewed: " + SURGEON_FEES_REVIEWED + ".");
   noteLines.push("All fees NZD incl. GST 15%.");
-  noteLines.push("Pricing last updated: " + PRICING_LAST_UPDATED + ".");
   setSummaryNote(noteLines);
 
   lastCalc = { procName, insKey, stay, tMin, rMin, nights, roomType,
@@ -21573,10 +21572,10 @@ function todayStr() {
 }
 document.getElementById("estimateDate").value = todayStr();
 
-// Show when the fee schedules were last revised.
+// Show when the surgeon fee schedule was last reviewed.
 (function () {
-  const el = document.getElementById("pricingUpdatedInline");
-  if (el) el.textContent = PRICING_LAST_UPDATED;
+  const el = document.getElementById("surgeonFeesReviewedInline");
+  if (el) el.textContent = SURGEON_FEES_REVIEWED;
 })();
 
 // ═══════════════════════════════════════════════════════════════════
@@ -22025,7 +22024,7 @@ async function generateDoc() {
 
   children.push(new Paragraph({
     spacing: { before: 20, after: 0 },
-    children: [new TextRun({ text: `Pricing last updated: ${PRICING_LAST_UPDATED}`, size: 16, color: "AAAAAA", font: "Arial" })]
+    children: [new TextRun({ text: `Surgeon fees reviewed: ${SURGEON_FEES_REVIEWED}`, size: 16, color: "AAAAAA", font: "Arial" })]
   }));
 
   const document_ = new Document({
