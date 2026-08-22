@@ -20499,6 +20499,27 @@ var __async = (__this, __arguments, generator) => {
                   style="flex:none;" title="Remove the second procedure">Clear</button>
         </div>
       </div>
+      <div class="form-row" id="addHospRow" style="display:none; align-items:flex-start;">
+        <label style="padding-top:2px;">Extra costs</label>
+        <div style="flex:1;">
+          <div style="display:flex; gap:8px;">
+            <div style="flex:1;">
+              <input type="number" id="addHospCost" min="0" step="10" placeholder="Hospital">
+              <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">Hospital</div>
+            </div>
+            <div style="flex:1;">
+              <input type="number" id="addAnaesCost" min="0" step="10" placeholder="Anaesthetist">
+              <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">Anaesthetist</div>
+            </div>
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:6px;">
+            The package price covers the primary procedure only. Ask the hospital and the
+            anaesthetist what they will charge for the second procedure and enter the amounts
+            here. Anything left blank is shown on the estimate as still to be confirmed.
+          </div>
+        </div>
+      </div>
+
       <div class="form-row" id="proc2AddRow" style="display:none;">
         <label></label>
         <div style="flex:1;">
@@ -21338,9 +21359,9 @@ function selectProc(name) {
   syncAnaesRow(name);
 
   // Offer the second-procedure option, and drop any selection that is no longer
-  // valid (a bariatric package cannot be combined, nor can the same procedure twice).
+  // valid (the same procedure cannot be chosen twice).
   const p1 = PROCEDURES[name];
-  const canCombine = !!p1 && p1.set_fee === undefined;
+  const canCombine = !!p1;
   const addRow = document.getElementById("proc2AddRow");
   const row2   = document.getElementById("proc2Row");
   if (!canCombine) {
@@ -21354,6 +21375,7 @@ function selectProc(name) {
     if (row2)   row2.style.display = showing ? "" : "none";
     if (addRow) addRow.style.display = showing ? "none" : "";
   }
+  syncAddHospRow();
 
   applyCombinedTimes();
   syncConsumablesForBoth();
@@ -21430,8 +21452,29 @@ function selectProc2(name) {
   selectedProc2 = name;
   proc2Input.value = name;
   proc2Dropdown.classList.remove("open");
+  syncAddHospRow();
   applyCombinedTimes();
   syncConsumablesForBoth();
+}
+
+// A set-fee package covers its own procedure only, so the hospital's charge for
+// anything added has to be obtained from them.
+function isPackageWithExtra() {
+  const p1 = PROCEDURES[procInput.value.trim()];
+  return !!(p1 && p1.set_fee !== undefined && selectedProc2);
+}
+
+function syncAddHospRow() {
+  const row = document.getElementById("addHospRow");
+  if (!row) return;
+  const show = isPackageWithExtra();
+  row.style.display = show ? "" : "none";
+  if (!show) {
+    ["addHospCost","addAnaesCost"].forEach(id => {
+      const f = document.getElementById(id);
+      if (f) f.value = "";
+    });
+  }
 }
 
 function showProc2() {
@@ -21446,6 +21489,7 @@ function clearProc2() {
   proc2Dropdown.classList.remove("open");
   document.getElementById("proc2Row").style.display = "none";
   document.getElementById("proc2AddRow").style.display = procInput.value.trim() ? "" : "none";
+  syncAddHospRow();
   applyCombinedTimes();
   syncConsumablesForBoth();
 }
@@ -21456,6 +21500,7 @@ function applyCombinedTimes() {
   const p1 = PROCEDURES[procInput.value.trim()];
   const p2 = selectedProc2 ? PROCEDURES[selectedProc2] : null;
   if (!p1) return;
+  // A package is priced as a package; its times are not used for charging.
   const t = p1.theatre_min  + (p2 ? p2.theatre_min  : 0);
   const r = p2 ? Math.max(p1.recovery_min, p2.recovery_min) : p1.recovery_min;
   document.getElementById("theatreMin").value  = t;
@@ -21541,6 +21586,11 @@ document.addEventListener("click", e => {
 
 // Anaesthetist tick box (endoscopy) - adds or removes the anaesthetist fee.
 document.getElementById("anaesRequired").addEventListener("change", applyAnaesRequired);
+
+// Extra hospital charge for a second procedure on a package.
+["addHospCost","addAnaesCost"].forEach(id =>
+  ["change","input"].forEach(ev =>
+    document.getElementById(id).addEventListener(ev, calculate)));
 
 // ═══════════════════════════════════════════════════════════════════
 // CONSUMABLES
@@ -21682,27 +21732,73 @@ function calculate() {
   // ── All-inclusive set fee (bariatric) ──
   if (proc && proc.set_fee !== undefined) {
     const setFee = proc.set_fee;
-    document.getElementById("r_surgeon").textContent  = "All-inclusive";
-    document.getElementById("r_anaes").textContent    = "All-inclusive";
+
+    // A second procedure sits outside the package. The surgeon's fee is charged
+    // at the usual 60%, the anaesthetist for the extra theatre time, and the
+    // hospital's own charge has to be obtained from them.
+    const extraProc  = proc2 || null;
+    const extraFeeIn = extraProc ? feeFor(extraProc).fee : null;
+    const addSurgeon = extraFeeIn !== null ? Math.round(extraFeeIn * SECOND_PROC_RATE) : 0;
+    // The hospital and the anaesthetist each set their own charge for anything
+    // added to a package, so both are entered once known rather than estimated.
+    const addHospRaw  = document.getElementById("addHospCost").value.trim();
+    const addAnaesRaw = document.getElementById("addAnaesCost").value.trim();
+    const addHosp     = addHospRaw  === "" ? null : (parseFloat(addHospRaw)  || 0);
+    const addAnaes    = addAnaesRaw === "" ? null : (parseFloat(addAnaesRaw) || 0);
+    const hospPending  = !!extraProc && addHosp  === null;
+    const anaesPending = !!extraProc && addAnaes === null;
+    const anyPending   = hospPending || anaesPending;
+    const pkgTotal   = setFee + addSurgeon + (addAnaes || 0) + (addHosp || 0);
+
+    document.getElementById("r_surgeon").textContent  = extraProc && addSurgeon
+      ? "Package + " + nzd(addSurgeon) : "All-inclusive";
+    document.getElementById("r_anaes").textContent    = anaesPending
+      ? "Package + to be confirmed"
+      : (addAnaes ? "Package + " + nzd(addAnaes) : "All-inclusive");
     document.getElementById("r_theatre").textContent  = "All-inclusive";
     document.getElementById("r_recovery").textContent = "All-inclusive";
     document.getElementById("r_accom").textContent    = "All-inclusive";
-    document.getElementById("r_hosp").textContent     = "All-inclusive";
+    document.getElementById("r_hosp").textContent     = hospPending
+      ? "Package + to be confirmed"
+      : (addHosp ? "Package + " + nzd(addHosp) : "All-inclusive");
     const rcRow = document.getElementById("r_cons_row");
     if (rcRow) rcRow.style.display = "none";
     const warnEl = document.getElementById("warnBanner");
-    warnEl.classList.remove("show");
-    document.getElementById("r_total").textContent = nzd(setFee);
-    setSummaryNote([
+    if (anyPending) {
+      const who = hospPending && anaesPending ? "the hospital and the anaesthetist"
+                : hospPending ? "the hospital" : "the anaesthetist";
+      warnEl.textContent = "\u26a0 Ask " + who + " what they will charge for the second procedure, then enter it above. Until then the estimate shows a \u201cfrom\u201d total.";
+      warnEl.classList.add("show");
+    } else {
+      warnEl.classList.remove("show");
+    }
+    document.getElementById("r_total").textContent =
+      (anyPending ? "From " : "") + nzd(pkgTotal);
+
+    const pkgNotes = [
       "\u2020 Anaesthetist's fee is included in the all-inclusive package price.",
-      "",
-      "This procedure is quoted as a single all-inclusive package covering the surgeon's fee, hospital fees, anaesthetist's fee and all consumables.",
-      "All fees NZD incl. GST 15%.",
-      "Surgeon fees reviewed: " + SURGEON_FEES_REVIEWED + "."
-    ]);
+      ""
+    ];
+    if (extraProc) {
+      pkgNotes.push("Package covers " + procName + ". " + proc2Name + " is charged in addition.");
+      if (anyPending) {
+        const who = hospPending && anaesPending ? "hospital's and anaesthetist's charges are"
+                  : hospPending ? "hospital's charge is" : "anaesthetist's fee is";
+        pkgNotes.push("The " + who + " still to be confirmed and NOT included in the total.");
+      }
+    } else {
+      pkgNotes.push("This procedure is quoted as a single all-inclusive package covering the surgeon's fee, hospital fees, anaesthetist's fee and all consumables.");
+    }
+    pkgNotes.push("All fees NZD incl. GST 15%.");
+    pkgNotes.push("Surgeon fees reviewed: " + SURGEON_FEES_REVIEWED + ".");
+    setSummaryNote(pkgNotes);
+
     lastCalc = { procName, insKey, stay: stayLabel(nights, roomType), tMin, rMin,
                  surgeonFee: null, anaestheticFee: 0, tFee: 0, rFee: 0, aFee: 0,
-                 hospTotal: 0, consTotal: 0, grandTotal: setFee };
+                 hospTotal: 0, consTotal: 0, grandTotal: pkgTotal,
+                 proc2Name, isCombined: false,
+                 pkgBase: setFee, addSurgeon, addAnaes, addHosp,
+                 hospPending, anaesPending, anyPending };
     return;
   }
 
@@ -21942,7 +22038,9 @@ async function generateDoc() {
 
   // ── All-inclusive bariatric set fee document ──
   if (proc && proc.set_fee !== undefined) {
-    const setFee = grandTotal; // lastCalc.grandTotal = proc.set_fee when set_fee path
+    const { pkgBase, addSurgeon, addAnaes, addHosp,
+            hospPending, anaesPending, anyPending } = lastCalc;
+    const setFee = grandTotal;   // package price plus anything added
     const surgeonName = document.getElementById("surgeon").value || "Richard Flint";
     const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
             AlignmentType, BorderStyle, WidthType, ShadingType } = docx;
@@ -21992,7 +22090,13 @@ async function generateDoc() {
         new TableRow({ children: [makeCell2("Patient Name", 3000, PALE, NAVY, true, false, 20), makeCell2(patient, CONTENT_W-3000, WHITE, "000000", false, false, 20)] }),
         new TableRow({ children: [makeCell2("Date of Birth", 3000, PALE, NAVY, true, false, 20), makeCell2(dob, CONTENT_W-3000, WHITE, "000000", false, false, 20)] }),
         new TableRow({ children: [makeCell2("Date of Estimate", 3000, PALE, NAVY, true, false, 20), makeCell2(estDate, CONTENT_W-3000, WHITE, "000000", false, false, 20)] }),
-        new TableRow({ children: [makeCell2("Procedure", 3000, PALE, NAVY, true, false, 20), makeCell2(procName, CONTENT_W-3000, WHITE, "000000", false, false, 20)] }),
+        new TableRow({ children: [makeCell2("Procedure", 3000, PALE, NAVY, true, false, 20),
+          proc2Name
+            ? new TableCell({ width: { size: CONTENT_W-3000, type: WidthType.DXA }, borders,
+                shading: { fill: WHITE, color: "auto", type: "clear" }, margins: cellPad,
+                children: [new Paragraph({ children: [procName, "+ " + proc2Name].map((line, i) =>
+                  new TextRun({ text: line, size: 20, font: "Arial", break: i === 0 ? 0 : 1 }))})]})
+            : makeCell2(procName, CONTENT_W-3000, WHITE, "000000", false, false, 20)] }),
         new TableRow({ children: [makeCell2("Hospital", 3000, PALE, NAVY, true, false, 20), makeCell2(hospital, CONTENT_W-3000, WHITE, "000000", false, false, 20)] }),
         new TableRow({ children: [makeCell2("Surgeon", 3000, PALE, NAVY, true, false, 20), makeCell2(surgeonName, CONTENT_W-3000, WHITE, "000000", false, false, 20)] }),
       ]
@@ -22005,11 +22109,24 @@ async function generateDoc() {
           makeCell2("Description", COL1, NAVY, WHITE, true, false, 20),
           makeCell2("Amount (NZD incl. GST)", COL2, NAVY, WHITE, true, true, 20)
         ]}),
-        feeRow2("Surgeon’s fee", "Included", false),
-        feeRow2("Anaesthetist’s fee", "Included", false),
-        feeRow2("Hospital fees (theatre, recovery, accommodation)", "Included", false),
-        feeRow2("Consumables and medical supplies", "Included", false),
-        feeRow2("SET FEE – ALL-INCLUSIVE", nzd(setFee), true),
+        // Without a second procedure the package covers everything. With one, the
+        // package is shown as a single line and the extras are listed beneath it.
+        ...(proc2Name ? [
+          feeRow2("Set fee – " + procName +
+                  " (surgeon, anaesthetist, hospital and all consumables)", nzd(pkgBase), false),
+          feeRow2("Additional surgeon’s fee – " + proc2Name, nzd(addSurgeon), false),
+          feeRow2("Additional anaesthetist’s fee – " + proc2Name,
+                  anaesPending ? "To be confirmed" : nzd(addAnaes || 0), false),
+          feeRow2("Additional hospital cost – " + proc2Name,
+                  hospPending ? "To be confirmed" : nzd(addHosp || 0), false),
+        ] : [
+          feeRow2("Surgeon’s fee", "Included", false),
+          feeRow2("Anaesthetist’s fee", "Included", false),
+          feeRow2("Hospital fees (theatre, recovery, accommodation)", "Included", false),
+          feeRow2("Consumables and medical supplies", "Included", false),
+        ]),
+        feeRow2(proc2Name ? (anyPending ? "TOTAL – FROM" : "TOTAL") : "SET FEE – ALL-INCLUSIVE",
+                nzd(setFee), true),
       ]
     });
     const fn2style = { size: 17, italic: true, color: GREY, font: "Arial" };
@@ -22036,7 +22153,14 @@ async function generateDoc() {
       para2("COST SUMMARY", { bold: true, size: 22, color: NAVY, after: 80 }),
       feeTable2,
       para2(""),
-      fn2("This is a fixed all-inclusive set fee covering the surgeon’s fee, hospital fees (theatre, recovery, and accommodation), anaesthetist’s fee, and all consumables and medical supplies."),
+      fn2(proc2Name
+        ? "The set fee is a fixed all-inclusive price covering " + procName + " only \u2013 the surgeon’s fee, hospital fees (theatre, recovery and accommodation), anaesthetist’s fee, and all consumables and medical supplies."
+        : "This is a fixed all-inclusive set fee covering the surgeon’s fee, hospital fees (theatre, recovery, and accommodation), anaesthetist’s fee, and all consumables and medical supplies."),
+      ...(proc2Name ? [fn2(
+        anyPending
+          ? proc2Name + " is not covered by the set fee. The charges still marked “to be confirmed” are not included in the total, so the final cost will be higher than the amount shown. We will confirm them with you before your admission."
+          : proc2Name + " is not covered by the set fee. The surgeon’s, anaesthetist’s and hospital charges for it are shown separately above."
+      )] : []),
       fn2("Pre-payment of the full amount is required prior to admission. Please contact our rooms to arrange payment."),
       fn2("All fees are in New Zealand Dollars (NZD) and include GST at 15%."),
       fn2("This estimate is provided as a guide only. In exceptional clinical circumstances, additional charges may apply and will be discussed with you in advance."),
