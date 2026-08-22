@@ -22066,9 +22066,15 @@ async function generateDoc() {
     }
 
     const contacts = [];
-    contacts.push(isStGeorges
-      ? ["Hospital costs \u2013 ", "Sarah Jane, St George\u2019s Hospital, 03 375 6101"]
-      : ["Hospital costs \u2013 ", `${hospital}`]);
+    // Hospital contact details, keyed by the hospital selected on the estimate.
+    // Keys must match the hospital dropdown values exactly, so the St George's
+    // entry is keyed off the existing constant rather than retyped.
+    const HOSPITAL_CONTACTS = {
+      [SET_FEE_HOSPITAL]:          "Sarah Jane, St George\u2019s Hospital, 03 375 6101",
+      "Southern Endoscopy Centre": "Southern Endoscopy Centre, 03 968 9800"
+    };
+    contacts.push(["Hospital costs \u2013 ",
+      HOSPITAL_CONTACTS[hospital] || `${hospital}`]);
     if (anaestheticFee > 0 || hasSedation) {
       contacts.push(["Anaesthetist costs \u2013 ", "Anaesthetic Associates, 03 365 3777"]);
     }
