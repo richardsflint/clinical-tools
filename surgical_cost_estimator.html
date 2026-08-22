@@ -20557,6 +20557,18 @@ var __async = (__this, __arguments, generator) => {
         </div>
       </div>
 
+      <!-- Anaesthetist (endoscopy only - not routine) -->
+      <div class="form-row" id="anaesRow" style="display:none; align-items:flex-start;">
+        <label style="padding-top:2px;">Anaesthetist</label>
+        <label style="flex:1; display:flex; align-items:flex-start; gap:8px; font-weight:400; cursor:pointer; margin:0;">
+          <input type="checkbox" id="anaesRequired" style="margin-top:3px; flex:none;">
+          <span style="font-size:12px; line-height:1.45;">
+            Anaesthetist required for this procedure
+            <br><small style="color:var(--muted);">Endoscopy is normally performed under sedation given by the endoscopist. Tick only if an anaesthetist will attend &ndash; their fee is then added to the quote.</small>
+          </span>
+        </label>
+      </div>
+
       <!-- Consumables -->
       <div id="consSection">
       <div class="section-label">Consumables &nbsp;<small style="font-weight:400;font-size:10px;">(mesh, staplers, clips, etc.)</small></div>
@@ -21241,15 +21253,43 @@ function selectProc(name) {
     return { name: cname, baseCost, chargedCost: chargedFor(cname, baseCost) };
   });
   
-  // Auto-add anaesthetist IV sedation for endoscopy procedures
-  if (p && p.anaesthetic === 0 &&
-      (name.includes("Colonoscopy") || name.includes("Gastroscopy") || name.includes("Flexible Sigmoidoscopy")) &&
-      !name.includes("Orbera")) {
-    const sedName = "Anaesthetist IV Sedation (optional)";
-    const amount  = PRESET_CONSUMABLES[sedName];   // $1,100, charged at cost
-    consumables.push({ name: sedName, baseCost: amount, chargedCost: chargedFor(sedName, amount) });
+  // An anaesthetist does not routinely attend endoscopy, so nothing is added
+  // automatically. The "Anaesthetist required" tick box adds the fee when one
+  // is needed. applyAnaesRequired() re-renders the consumable list.
+  syncAnaesRow(name);
+  applyAnaesRequired();
+}
+
+// ── Anaesthetist required (endoscopy) ────────────────────────────────
+// Colonoscopy and gastroscopy are performed under sedation given by the
+// endoscopist. An anaesthetist is only needed in unusual cases, so the
+// charge is opt-in rather than automatic.
+const ENDO_SED_NAME = "Anaesthetist IV Sedation (optional)";
+
+function isEndoscopyProc(name) {
+  return !!name && /Colonoscopy|Gastroscopy|Sigmoidoscopy/.test(name) && !/Orbera/.test(name);
+}
+
+// Show the tick box only where an anaesthetist is optional, i.e. procedures
+// that carry no built-in anaesthetist fee.
+function syncAnaesRow(name) {
+  const row = document.getElementById("anaesRow");
+  const cb  = document.getElementById("anaesRequired");
+  if (!row || !cb) return;
+  const p = PROCEDURES[name];
+  const optional = isEndoscopyProc(name) && p && p.anaesthetic === 0;
+  row.style.display = optional ? "" : "none";
+  if (!optional) cb.checked = false;
+}
+
+function applyAnaesRequired() {
+  const cb = document.getElementById("anaesRequired");
+  consumables = consumables.filter(c => c.name !== ENDO_SED_NAME);
+  if (cb && cb.checked) {
+    const amount = PRESET_CONSUMABLES[ENDO_SED_NAME];
+    consumables.push({ name: ENDO_SED_NAME, baseCost: amount,
+                       chargedCost: chargedFor(ENDO_SED_NAME, amount) });
   }
-  
   renderConsumables();
 }
 
@@ -21293,6 +21333,9 @@ document.addEventListener("click", e => {
   document.getElementById(id).addEventListener("change", calculate);
   document.getElementById(id).addEventListener("input", calculate);
 });
+
+// Anaesthetist tick box (endoscopy) - adds or removes the anaesthetist fee.
+document.getElementById("anaesRequired").addEventListener("change", applyAnaesRequired);
 
 // ═══════════════════════════════════════════════════════════════════
 // CONSUMABLES
@@ -21483,7 +21526,10 @@ function calculate() {
 
   document.getElementById("r_surgeon").textContent  = surgeonFee !== null ? nzd(surgeonFee) : "Not listed";
   const isEndoscopy = procName.includes("Colonoscopy") || procName.includes("Gastroscopy");
-  const anaesDisplay = anaestheticFee > 0 ? nzd(anaestheticFee) : (isEndoscopy ? "N/A (sedation)" : "N/A (local)");
+  const sedationOnQuote = consumables.some(c => /IV Sedation/i.test(c.name));
+  const anaesDisplay = anaestheticFee > 0 ? nzd(anaestheticFee)
+    : sedationOnQuote ? nzd(consumables.filter(c => /IV Sedation/i.test(c.name)).reduce((t,c)=>t+c.chargedCost,0))
+    : (isEndoscopy ? "Not required" : "N/A (local)");
   document.getElementById("r_anaes").textContent    = anaesDisplay;
   const isFixed = seHospFee !== null || setFee || (proc && proc.hosp_fixed !== undefined);
   const thLbl = document.getElementById("r_theatre_lbl");
@@ -21516,7 +21562,8 @@ function calculate() {
   const hasSedation  = !setFee && consumables.some(c => /IV Sedation/i.test(c.name));
   const noteLines = [];
   if (anaestheticFee > 0)  noteLines.push("\u2020 Anaesthetist bills separately. Estimate only \u2013 actual fee varies by duration and complexity.");
-  else if (hasSedation)    noteLines.push("\u2020 No anaesthetist's fee \u2013 IV sedation is listed under consumables and billed separately.");
+  else if (hasSedation)    noteLines.push("\u2020 Anaesthetist attending \u2013 bills separately. Estimate only.");
+  else if (isEndoscopy)    noteLines.push("\u2020 No anaesthetist \u2013 sedation is given by the endoscopist. Tick \u201cAnaesthetist required\u201d above if one will attend.");
   else                     noteLines.push("\u2020 No anaesthetist's fee \u2013 performed under local anaesthetic.");
   noteLines.push("");
   if (surgeonFee === null && procName) noteLines.push("Surgeon's fee is not listed for this insurer and is NOT included in the total.");
@@ -21869,7 +21916,8 @@ async function generateDoc() {
       ]}),
       costRow("Surgeon's Fee", surgeonStr, false, false),
       costRow("Anaesthetist's Fee \u2020",
-        anaesAllIn > 0 ? nzd(anaesAllIn) : "N/A (local anaesthetic)", false, false),
+        anaesAllIn > 0 ? nzd(anaesAllIn)
+        : (/Colonoscopy|Gastroscopy|Sigmoidoscopy/.test(procName) ? "Not required" : "N/A (local anaesthetic)"), false, false),
       costRow("Hospital Fee \u2013 inclusive of theatre, recovery, accommodation and all medical supplies",
         nzd(hospitalAllIn), false, false),
       costRow("TOTAL ESTIMATE", nzd(grandTotal), true, true),
@@ -21955,8 +22003,10 @@ async function generateDoc() {
     const anaesNote = anaestheticFee > 0
       ? "An estimate only. The anaesthetist bills separately, and their actual fee may vary with the duration and complexity of the procedure."
       : hasSedation
-        ? "The amount shown covers IV sedation. It is billed separately by the anaesthetist and may vary."
-        : "Not applicable \u2013 this procedure is performed under local anaesthetic.";
+        ? "An estimate only. The amount shown covers attendance by an anaesthetist. They bill separately and their actual fee may vary."
+        : (isColon || isGastro)
+          ? "Not required. This procedure is performed under sedation given by the endoscopist. An anaesthetist is only needed in unusual cases and would be quoted separately."
+          : "Not applicable \u2013 this procedure is performed under local anaesthetic.";
 
     let hospNote;
     // Lead with the same "estimate only / bills separately" framing used for
