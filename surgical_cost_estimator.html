@@ -21463,8 +21463,13 @@ let lastCalc = null;
 function calculate() {
   const procName = procInput.value.trim();
   const insKey   = document.getElementById("insurance").value;
-  // "Other Insurer": surgeon's fee at Standard Private rates, but hospital,
-  // anaesthetist and consumable pricing follows Southern Cross Affiliated Provider.
+  // "Other Insurer": surgeon's fee at Standard Private rates (falling back to
+  // the Southern Cross AP rate only where no standard rate is listed). Hospital
+  // and anaesthetist fees are the same for every insurer - the hospital is
+  // charged on the St George's schedule and the anaesthetist figure is fixed per
+  // procedure. hospKey is set to "sx_ap" purely so that the self-funding fixed
+  // price schedules (St George's set fees, Southern Endoscopy averages) are not
+  // applied to an insured patient.
   const isOtherIns = insKey === "other";
   const hospKey    = isOtherIns ? "sx_ap" : insKey;
   const tMin     = parseInt(document.getElementById("theatreMin").value) || 60;
@@ -22096,8 +22101,7 @@ async function generateDoc() {
     section("WHAT THIS ESTIMATE COVERS", [
       surgeonNote ? ["Surgeon\u2019s fee", surgeonNote] : null,
       ["Anaesthetist\u2019s fee \u2020", anaesNote],
-      ["Hospital fee", hospNote],
-      isOtherIns ? "Hospital and anaesthetist costs are estimated using Southern Cross Affiliated Provider pricing." : null
+      ["Hospital fee", hospNote]
     ]);
 
     // ══════ 2. Why the final invoice may differ ══════
