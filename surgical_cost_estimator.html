@@ -20808,6 +20808,23 @@ const ENDO_FAMILIES = [
   ["Flexible Sigmoidoscopy",    "a flexible sigmoidoscopy"]
 ];
 
+// Hospital charge range across the same family. Endoscopy hospital charges
+// step up with what is found and treated, so the base charge alone understates
+// the likely cost.
+function endoscopyHospitalRange(name) {
+  const fam = ENDO_FAMILIES.find(f => name === f[0]);
+  if (!fam) return null;
+  const prefix = fam[0];
+  const vals = Object.keys(PROCEDURES)
+    .filter(n => n.startsWith(prefix))
+    .filter(n => !(prefix === "Gastroscopy" && n.startsWith("Gastroscopy + Colonoscopy")))
+    .map(n => PROCEDURES[n].hosp_fixed)
+    .filter(v => v !== null && v !== undefined);
+  if (vals.length < 2) return null;
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  return lo === hi ? null : { lo, hi };
+}
+
 // Only the base procedures get a range: once an add-on is named the fee is
 // known. `key` is the PROCEDURES field the surgeon's fee was read from.
 function endoscopyRange(name, key) {
@@ -21845,9 +21862,26 @@ async function generateDoc() {
     return;
   }
 
-  const surgeonStr = surgeonFee !== null
-    ? nzd(surgeonFee)
-    : "Not listed for this insurer – please contact rooms";
+  // ── Endoscopy: quote as a range ───────────────────────────────────
+  // For a base colonoscopy/gastroscopy the final fee depends on what is found
+  // and treated, so surgeon, hospital and total are each shown as a range
+  // rather than a single figure that would understate the likely cost.
+  const docFeeKey  = isOtherIns ? (surgeonFeeFallback ? "sx_ap" : "standard") : insKey;
+  const endoFeeR   = surgeonFee === null ? null : endoscopyRange(procName, docFeeKey);
+  const endoHospR  = endoscopyHospitalRange(procName);
+  const asRange    = !!(endoFeeR && endoHospR);
+  const rng        = (lo, hi) => nzd0(lo) + " – " + nzd0(hi);
+
+  // Everything added to the base hospital charge stays constant across the range.
+  const hospExtras = aFee + suppliesTotal;
+  const hospLo     = asRange ? endoHospR.lo + hospExtras : null;
+  const hospHi     = asRange ? endoHospR.hi + hospExtras : null;
+  const totalLo    = asRange ? endoFeeR.lo + anaesAllIn + hospLo : null;
+  const totalHi    = asRange ? endoFeeR.hi + anaesAllIn + hospHi : null;
+
+  const surgeonStr = surgeonFee === null
+    ? "Not listed for this insurer – please contact rooms"
+    : asRange ? rng(endoFeeR.lo, endoFeeR.hi) : nzd(surgeonFee);
 
   try {
 
@@ -21952,8 +21986,9 @@ async function generateDoc() {
         anaesAllIn > 0 ? nzd(anaesAllIn)
         : (/Colonoscopy|Gastroscopy|Sigmoidoscopy/.test(procName) ? "Not required" : "N/A (local anaesthetic)"), false, false),
       costRow("Hospital Fee \u2013 inclusive of theatre, recovery, accommodation and all medical supplies",
-        nzd(hospitalAllIn), false, false),
-      costRow("TOTAL ESTIMATE", nzd(grandTotal), true, true),
+        asRange ? rng(hospLo, hospHi) : nzd(hospitalAllIn), false, false),
+      costRow("TOTAL ESTIMATE",
+        asRange ? rng(totalLo, totalHi) : nzd(grandTotal), true, true),
     ]
   });
 
@@ -21991,6 +22026,8 @@ async function generateDoc() {
     // Match the range to the schedule the surgeon's fee came from.
     const feeKey       = isOtherIns ? (surgeonFeeFallback ? "sx_ap" : "standard") : insKey;
     const endoRange    = surgeonFee === null ? null : endoscopyRange(procName, feeKey);
+    const endoHosp     = endoscopyHospitalRange(procName);
+    const quotedAsRange = !!(endoRange && endoHosp);
 
     // ── Layout helpers: the disclaimer is grouped into short titled
     //    sections of bulleted points rather than a run of loose sentences.
@@ -22024,7 +22061,7 @@ async function generateDoc() {
     if (surgeonFee === null) {
       surgeonNote = "No fee is listed for this insurance type, so none is included in the total above. Please contact the rooms for a quote.";
     } else if (endoRange) {
-      surgeonNote = `The fee shown is an average for ${endoRange.label}. Depending on what is found and treated (biopsies, polypectomy, dilatation and similar), the final fee may range from ${nzd0(endoRange.lo)} to ${nzd0(endoRange.hi)}.`;
+      surgeonNote = `Shown as a range because the fee for ${endoRange.label} depends on what is found and treated (biopsies, polypectomy, dilatation and similar). A straightforward procedure sits at the lower end.`;
     } else if (isOtherIns) {
       surgeonNote = surgeonFeeFallback
         ? "The fee shown is the Southern Cross Affiliated Provider rate, as no standard private rate is listed for this procedure."
@@ -22049,7 +22086,9 @@ async function generateDoc() {
     } else if (setFee) {
       hospNote = `An estimate only. The hospital bills separately. Based on a fixed price of ${nzd(setFee.price)} under the St George\u2019s Set Fee Schedule effective ${SET_FEE_EFFECTIVE}${setFee.allInsurers ? "" : " (self-funding patients only)"}, covering the hospital stay${setFee.accomNightsIncl > 0 ? ` including ${setFee.accomNightsIncl} night accommodation` : " with accommodation charged separately"} and all medical supplies.`;
     } else if (hasHospFixed) {
-      hospNote = `An estimate only. The hospital bills separately. Based on the scheduled charge of ${nzd(tFee)} for the procedure as described, covering theatre, recovery and accommodation. Equipment used during the procedure is charged to the patient, so the final amount will be higher if more is found and treated than anticipated.`;
+      hospNote = quotedAsRange
+        ? `An estimate only. The hospital bills separately. Shown as a range because the hospital\u2019s charge rises with what is found and treated; it covers theatre, recovery and accommodation. Equipment used during the procedure is charged to the patient.`
+        : `An estimate only. The hospital bills separately. Based on the scheduled charge of ${nzd(tFee)} for the procedure as described, covering theatre, recovery and accommodation. Equipment used during the procedure is charged to the patient, so the final amount will be higher if more is found and treated than anticipated.`;
     } else {
       hospNote = `An estimate only. The hospital bills separately, and the actual fee may vary with the time spent in theatre and recovery. Based on the ${isStGeorges ? "St George\u2019s Hospital Fees Schedule effective 1 April 2026" : hospital + " fee schedule"}, covering an estimated ${tMin} minutes in theatre and ${rMin} minutes in recovery, together with accommodation (${stay}) and all medical supplies.`;
     }
