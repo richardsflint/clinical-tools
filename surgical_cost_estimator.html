@@ -20776,7 +20776,9 @@ const ST_GEORGE_SET_FEES = {
   // Robotic inguinal repair is only offered as a fixed price package (it includes
   // the robotic instrumentation), so it applies regardless of the insurer selected.
   "Hernia Inguinal Unilateral Robotic Repair":      { price:  9000, accomNightsIncl: 0, allInsurers: true },
-  "Hernia Inguinal Bilateral Robotic Repair":       { price: 10000, accomNightsIncl: 0, allInsurers: true }
+  "Hernia Inguinal Bilateral Robotic Repair":       { price: 10000, accomNightsIncl: 0, allInsurers: true },
+  // OAGB to RYGB revision: St George's fixed hospital price $19,000 (GST incl.), any payer.
+  "Laparoscopic Revision of One Anastomosis Gastric Bypass to Roux-en-Y Gastric Bypass": { price: 19000, accomNightsIncl: 1, allInsurers: true }
 };
 
 // Returns the set-fee record, or null if it does not apply.
@@ -21104,6 +21106,8 @@ const PROCEDURES = {
     {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:100,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:27237},
   "Laparoscopic Fundoplication Conversion to Roux-en-Y Gastric Bypass + Hiatal Hernia Repair":
     {standard:null,sx_ap:null,hnz:null, anaesthetic:0,theatre_min:180,recovery_min:90,typical_stay:"Overnight – Single Room", set_fee:34670},
+  "Laparoscopic Revision of One Anastomosis Gastric Bypass to Roux-en-Y Gastric Bypass":
+    {standard:7000,sx_ap:null,hnz:null, anaesthetic:3000,theatre_min:180,recovery_min:90,typical_stay:"Overnight – Single Room"},
   "Laparoscopic Revision Fundoplication and Hiatal Hernia Repair":
     {standard:9000,sx_ap:null,hnz:null, anaesthetic:2500,theatre_min:150,recovery_min:60,typical_stay:"Overnight – Single Room"},
   "Laparoscopic Revision Fundoplication":
